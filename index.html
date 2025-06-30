@@ -5,61 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leave Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Custom styles */
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .leave-status-pending {
-            background-color: #FEF3C7;
-            color: #92400E;
-        }
-        .leave-status-approved {
-            background-color: #D1FAE5;
-            color: #065F46;
-        }
-        .leave-status-rejected {
-            background-color: #FEE2E2;
-            color: #991B1B;
-        }
-        #calendar th, #calendar td {
-            height: 30px;
-            text-align: center;
-        }
-        .leave-day {
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .leave-status-pending { background-color: #FEF3C7; color: #92400E; }
+        .leave-status-approved { background-color: #D1FAE5; color: #065F46; }
+        .leave-status-rejected { background-color: #FEE2E2; color: #991B1B; }
+        .leave-day { border-radius: 50%; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; }
+        .calendar-day.has-leave { cursor: pointer; }
+        #calendar th, #calendar td { height: 30px; text-align: center; }
+        #calendar td { padding: 5px; }
+        .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.3s; }
+        .has-leave:hover .tooltip { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
+    <!-- Login/Signup Page (Shown First) -->
+    <div id="auth-page" class="flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-8">Leave Management System</h1>
+            <div class="flex justify-between mb-4 border-b">
+                <button id="login-tab" class="font-medium py-2 px-4 border-b-2 border-blue-500">Login</button>
+                <button id="signup-tab" class="font-medium py-2 px-4 text-gray-500">Sign Up</button>
+            </div>
+            <!-- Login Form -->
+            <div id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input id="login-email" type="email" class="w-full p-2 border rounded" placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input id="login-password" type="password" class="w-full p-2 border rounded" placeholder="••••••••">
+                </div>
+                <button id="login-btn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
+                <p id="login-error" class="text-red-500 text-sm hidden">Invalid email or password.</p>
+            </div>
+            <!-- Signup Form -->
+            <div id="signup-form" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input id="signup-name" type="text" class="w-full p-2 border rounded" placeholder="John Doe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input id="signup-email" type="email" class="w-full p-2 border rounded" placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password (min 6 chars)</label>
+                    <input id="signup-password" type="password" class="w-full p-2 border rounded" placeholder="••••••••">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                    <select id="signup-role" class="w-full p-2 border rounded">
+                        <option value="employee">Employee</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <input id="signup-department" type="text" class="w-full p-2 border rounded" placeholder="Teaching/Non-Teaching">
+                </div>
+                <button id="signup-btn" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Sign Up</button>
+                <p id="signup-error" class="text-red-500 text-sm hidden">Please fill all fields.</p>
+                <p id="signup-success" class="text-green-500 text-sm hidden">Success! Please login.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (Hidden Initially) -->
+    <div id="app" class="container mx-auto px-4 py-8 hidden">
         <header class="mb-8">
             <div class="flex justify-between items-center mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">
-                    <img src="https://placehold.co/50x50" alt="Company logo with blue background and white text" class="inline-block mr-2 align-middle" />
+                <h1 class="text-2xl font-bold text-gray-800">
+                    <img src="https://placehold.co/50x50" alt="Company logo with blue background and white text" class="inline-block mr-2 align-middle rounded-full" />
                     Leave Management System
                 </h1>
-                <div class="flex items-center space-x-4">
-                    <span class="text-gray-600">Welcome, <span id="userName" class="font-semibold">Admin</span></span>
-                    <button id="logoutBtn" class="text-red-500 hover:text-red-700">
+                <div id="user-info" class="flex items-center space-x-2">
+                    <span id="current-user" class="font-medium"></span>
+                    <button id="logout-btn" class="p-2 rounded-full hover:bg-gray-100">
                         <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
             </div>
             <nav class="flex border-b border-gray-200">
-                <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600" data-tab="dashboard">Dashboard</button>
-                <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600" data-tab="request-leave">Request Leave</button>
-                <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600" data-tab="calendar">Calendar</button>
-                <button class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600" data-tab="employees">Employees</button>
+                <button data-tab="dashboard" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Dashboard</button>
+                <button data-tab="request-leave" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Request Leave</button>
+                <button data-tab="calendar" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Calendar</button>
+                <button data-tab="employees" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Employees</button>
+                <button data-tab="admin" id="admin-tab-btn" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 hidden">Admin</button>
             </nav>
         </header>
 
@@ -68,37 +103,36 @@
             <div id="dashboard" class="tab-content active">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="font-medium text-gray-500">Remaining Leave</h3>
-                        <p class="text-3xl font-bold text-blue-600 mt-2">15 <span class="text-lg">days</span></p>
+                        <h3 class="font-medium text-gray-500">Remaining Leave Days</h3>
+                        <p class="text-3xl font-bold text-blue-600 mt-2" id="remaining-leave">15</p>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow">
                         <h3 class="font-medium text-gray-500">Pending Requests</h3>
-                        <p class="text-3xl font-bold text-yellow-600 mt-2" id="pendingRequests">3</p>
+                        <p class="text-3xl font-bold text-yellow-600 mt-2" id="pending-count">0</p>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="font-medium text-gray-500">Upcoming Time Off</h3>
-                        <p class="text-3xl font-bold text-green-600 mt-2">5 <span class="text-lg">days</span></p>
+                        <h3 class="font-medium text-gray-500">Approved Requests</h3>
+                        <p class="text-3xl font-bold text-green-600 mt-2" id="approved-count">0</p>
                     </div>
                 </div>
 
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="font-semibold text-gray-800">Recent Leave Requests</h2>
+                        <h2 class="font-semibold text-gray-800">Your Leave Requests</h2>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200" id="requestsTable">
-                                <!-- Requests will be populated by JavaScript -->
+                            <tbody id="user-leave-requests" class="bg-white divide-y divide-gray-200">
+                                <!-- Dynamically populated -->
                             </tbody>
                         </table>
                     </div>
@@ -109,42 +143,40 @@
             <div id="request-leave" class="tab-content">
                 <div class="bg-white rounded-lg shadow overflow-hidden p-6">
                     <h2 class="text-xl font-semibold text-gray-800 mb-6">Request New Leave</h2>
-                    <form id="leaveRequestForm">
+                    <form id="leave-request-form">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label for="leaveType" class="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-                                <select id="leaveType" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                                <select id="leave-type" class="w-full p-2 border rounded">
                                     <option value="annual">Annual Leave</option>
                                     <option value="sick">Sick Leave</option>
                                     <option value="personal">Personal Leave</option>
-                                    <option value="other">Other</option>
+                                    <option value="bereavement">Bereavement Leave</option>
                                 </select>
                             </div>
                             <div>
-                                <label for="duration" class="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                                <select id="duration" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="full-day">Full Day</option>
-                                    <option value="half-day-am">Half Day (AM)</option>
-                                    <option value="half-day-pm">Half Day (PM)</option>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                                <select id="leave-duration" class="w-full p-2 border rounded">
+                                    <option value="full">Full Day</option>
+                                    <option value="half-am">Half Day (AM)</option>
+                                    <option value="half-pm">Half Day (PM)</option>
                                 </select>
                             </div>
                             <div>
-                                <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                <input type="date" id="startDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input id="leave-start" type="date" class="w-full p-2 border rounded">
                             </div>
                             <div>
-                                <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                                <input type="date" id="endDate" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input id="leave-end" type="date" class="w-full p-2 border rounded">
                             </div>
                             <div class="md:col-span-2">
-                                <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                                <textarea id="reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                                <textarea id="leave-reason" rows="3" class="w-full p-2 border rounded" placeholder="Briefly explain the reason for leave"></textarea>
                             </div>
                         </div>
                         <div class="mt-6 flex justify-end">
-                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Submit Request
-                            </button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Submit Request</button>
                         </div>
                     </form>
                 </div>
@@ -154,32 +186,43 @@
             <div id="calendar" class="tab-content">
                 <div class="bg-white rounded-lg shadow overflow-hidden p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-semibold text-gray-800">Leave Calendar</h2>
-                        <div class="flex space-x-2">
-                            <button id="prevMonth" class="p-2 rounded-full hover:bg-gray-100">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <h3 id="currentMonth" class="text-lg font-medium px-4">July 2023</h3>
-                            <button id="nextMonth" class="p-2 rounded-full hover:bg-gray-100">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
+                        <h2 class="text-xl font-semibold text-gray-800">Leave Calendar 2025</h2>
+                        <div class="flex items-center space-x-4">
+                            <select id="calendar-month" class="p-2 border rounded">
+                                <option value="0">January</option>
+                                <option value="1">February</option>
+                                <option value="2">March</option>
+                                <option value="3">April</option>
+                                <option value="4">May</option>
+                                <option value="5">June</option>
+                                <option value="6">July</option>
+                                <option value="7">August</option>
+                                <option value="8">September</option>
+                                <option value="9">October</option>
+                                <option value="10">November</option>
+                                <option value="11">December</option>
+                            </select>
+                            <select id="calendar-year" class="p-2 border rounded">
+                                <option>2025</option>
+                                <option>2024</option>
+                            </select>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table id="calendarView" class="w-full">
+                        <table class="w-full" id="calendar-table">
                             <thead>
                                 <tr>
-                                    <th>Sun</th>
-                                    <th>Mon</th>
-                                    <th>Tue</th>
-                                    <th>Wed</th>
-                                    <th>Thu</th>
-                                    <th>Fri</th>
-                                    <th>Sat</th>
+                                    <th class="p-2">Sun</th>
+                                    <th class="p-2">Mon</th>
+                                    <th class="p-2">Tue</th>
+                                    <th class="p-2">Wed</th>
+                                    <th class="p-2">Thu</th>
+                                    <th class="p-2">Fri</th>
+                                    <th class="p-2">Sat</th>
                                 </tr>
                             </thead>
-                            <tbody id="calendarBody">
-                                <!-- Calendar will be populated by JavaScript -->
+                            <tbody id="calendar-body">
+                                <!-- Dynamic content -->
                             </tbody>
                         </table>
                     </div>
@@ -198,6 +241,10 @@
                                 <span class="leave-day bg-red-100 mr-2"></span>
                                 <span>Rejected</span>
                             </div>
+                            <div class="flex items-center">
+                                <span class="leave-day bg-blue-100 mr-2"></span>
+                                <span>Your Leave</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -205,4 +252,789 @@
 
             <!-- Employees Tab -->
             <div id="employees" class="tab-content">
-                <div class="bg-white
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 class="font-semibold text-gray-800">Employees (2025)</h2>
+                        <div class="relative">
+                            <input type="text" id="employee-search" placeholder="Search employees..." class="p-2 pl-8 border rounded w-64">
+                            <i class="fas fa-search absolute left-2 top-3 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Days Left</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employee-list" class="bg-white divide-y divide-gray-200">
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Tab -->
+            <div id="admin" class="tab-content">
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="font-semibold text-gray-800">Admin Dashboard</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-8">
+                            <h3 class="font-medium text-lg mb-4">Pending Leave Requests</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-pending-requests" class="bg-white divide-y divide-gray-200">
+                                        <!-- Dynamic content -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-gray-50 p-4 rounded">
+                                <h3 class="font-medium text-lg mb-4">Add New Employee</h3>
+                                <form id="add-employee-form">
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                            <input type="text" id="new-emp-name" class="w-full p-2 border rounded" required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                            <input type="email" id="new-emp-email" class="w-full p-2 border rounded" required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                                            <select id="new-emp-dept" class="w-full p-2 border rounded">
+                                                <option value="Teaching">Teaching</option>
+                                                <option value="Non-Teaching">Non-Teaching</option>
+                                                <option value="Administration">Administration</option>
+                                                <option value="Support">Support</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Initial Leave Balance</label>
+                                            <input type="number" id="new-emp-leave" class="w-full p-2 border rounded" value="15" min="0">
+                                        </div>
+                                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Add Employee</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-lg mb-4">System Settings</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Annual Leave Days</label>
+                                        <input type="number" id="default-leave-days" class="w-full p-2 border rounded" value="15">
+                                    </div>
+                                    <button id="save-settings" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Save Settings</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Data Models
+        let users = JSON.parse(localStorage.getItem('leaveSystemUsers')) || [];
+        let leaveRequests = JSON.parse(localStorage.getItem('leaveSystemRequests')) || [];
+        let settings = JSON.parse(localStorage.getItem('leaveSystemSettings')) || { defaultLeaveDays: 15 };
+        let currentUser = null;
+
+        // DOM Elements
+        const authPage = document.getElementById('auth-page');
+        const app = document.getElementById('app');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const loginTab = document.getElementById('login-tab');
+        const signupTab = document.getElementById('signup-tab');
+        const logoutBtn = document.getElementById('logout-btn');
+        const currentUserSpan = document.getElementById('current-user');
+        const adminTabBtn = document.getElementById('admin-tab-btn');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            setupEventListeners();
+            loadSampleDataIfEmpty();
+        });
+
+        // Check if user is logged in
+        function checkAuth() {
+            const userId = localStorage.getItem('currentUserId');
+            if (userId) {
+                currentUser = users.find(u => u.id === userId);
+                if (currentUser) {
+                    authPage.classList.add('hidden');
+                    app.classList.remove('hidden');
+                    updateUIForUser();
+                }
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Auth
+            loginTab.addEventListener('click', () => toggleAuthForms('login'));
+            signupTab.addEventListener('click', () => toggleAuthForms('signup'));
+            loginBtn.addEventListener('click', handleLogin);
+            signupBtn.addEventListener('click', handleSignup);
+            logoutBtn.addEventListener('click', handleLogout);
+
+            // Tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+
+            // Leave request
+            document.getElementById('leave-request-form').addEventListener('submit', handleLeaveRequest);
+
+            // Calendar
+            document.getElementById('calendar-month').addEventListener('change', renderCalendar);
+            document.getElementById('calendar-year').addEventListener('change', renderCalendar);
+
+            // Admin
+            document.getElementById('add-employee-form').addEventListener('submit', handleAddEmployee);
+            document.getElementById('save-settings').addEventListener('click', saveSettings);
+
+            // Search
+            document.getElementById('employee-search').addEventListener('input', filterEmployees);
+        }
+
+        // Toggle between login/signup forms
+        function toggleAuthForms(form) {
+            if (form === 'login') {
+                loginTab.classList.add('border-blue-500');
+                loginTab.classList.remove('text-gray-500');
+                signupTab.classList.remove('border-blue-500');
+                signupTab.classList.add('text-gray-500');
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+            } else {
+                signupTab.classList.add('border-blue-500');
+                signupTab.classList.remove('text-gray-500');
+                loginTab.classList.remove('border-blue-500');
+                loginTab.classList.add('text-gray-500');
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            }
+        }
+
+        // Handle login
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            const user = users.find(u => u.email === email && u.password === password);
+            const errorElement = document.getElementById('login-error');
+            
+            if (user) {
+                errorElement.classList.add('hidden');
+                currentUser = user;
+                localStorage.setItem('currentUserId', user.id);
+                authPage.classList.add('hidden');
+                app.classList.remove('hidden');
+                updateUIForUser();
+            } else {
+                errorElement.classList.remove('hidden');
+            }
+        }
+
+        // Handle signup
+        function handleSignup(e) {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const role = document.getElementById('signup-role').value;
+            const department = document.getElementById('signup-department').value;
+            
+            const errorElement = document.getElementById('signup-error');
+            const successElement = document.getElementById('signup-success');
+            
+            if (!name || !email || !password || !department) {
+                errorElement.classList.remove('hidden');
+                successElement.classList.add('hidden');
+                return;
+            }
+            
+            if (users.some(u => u.email === email)) {
+                errorElement.textContent = "Email already registered.";
+                errorElement.classList.remove('hidden');
+                successElement.classList.add('hidden');
+                return;
+            }
+            
+            const newUser = {
+                id: generateId(),
+                name,
+                email,
+                password,
+                role,
+                department,
+                leaveBalance: settings.defaultLeaveDays || 15,
+                remainingLeave: settings.defaultLeaveDays || 15
+            };
+            
+            users.push(newUser);
+            saveUsers();
+            
+            errorElement.classList.add('hidden');
+            successElement.classList.remove('hidden');
+            
+            // Clear form
+            document.getElementById('signup-name').value = '';
+            document.getElementById('signup-email').value = '';
+            document.getElementById('signup-password').value = '';
+            document.getElementById('signup-department').value = '';
+            
+            // Switch to login after 1.5s
+            setTimeout(() => {
+                successElement.classList.add('hidden');
+                toggleAuthForms('login');
+            }, 1500);
+        }
+
+        // Handle logout
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('currentUserId');
+            authPage.classList.remove('hidden');
+            app.classList.add('hidden');
+        }
+
+        // Update UI based on user role
+        function updateUIForUser() {
+            currentUserSpan.textContent = currentUser.name;
+            
+            // Show admin tab if admin
+            if (currentUser.role === 'admin') {
+                adminTabBtn.classList.remove('hidden');
+            } else {
+                adminTabBtn.classList.add('hidden');
+            }
+            
+            // Update dashboard
+            document.getElementById('remaining-leave').textContent = currentUser.remainingLeave;
+            
+            // Load user's leave requests
+            renderUserLeaveRequests();
+            
+            // Load pending count for admin
+            if (currentUser.role === 'admin') {
+                renderPendingRequests();
+            }
+            
+            // Load employee list
+            renderEmployeeList();
+            
+            // Load calendar
+            renderCalendar();
+        }
+
+        // Switch between tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabId).classList.add('active');
+            
+            // Update tab button styling
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('text-gray-500');
+            });
+            document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('border-blue-600', 'text-blue-600');
+            document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.remove('text-gray-500');
+        }
+
+        // Handle leave request submission
+        function handleLeaveRequest(e) {
+            e.preventDefault();
+            
+            const type = document.getElementById('leave-type').value;
+            const duration = document.getElementById('leave-duration').value;
+            const startDate = document.getElementById('leave-start').value;
+            const endDate = document.getElementById('leave-end').value;
+            const reason = document.getElementById('leave-reason').value;
+            
+            if (!startDate || !endDate || !reason) {
+                alert('Please fill all required fields');
+                return;
+            }
+            
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            if (start > end) {
+                alert('End date must be after start date');
+                return;
+            }
+            
+            // Calculate days difference (including start/end dates)
+            const timeDiff = end - start;
+            const daysDiff = (timeDiff / (1000 * 60 * 60 * 24)) + 1;
+            
+            // For half days, count as 0.5
+            const leaveDays = duration === 'full' ? daysDiff : daysDiff * 0.5;
+            
+            // Check if user has enough leave balance
+            if (leaveDays > currentUser.remainingLeave) {
+                alert('You do not have enough leave days remaining');
+                return;
+            }
+            
+            const newRequest = {
+                id: generateId(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                type,
+                duration,
+                startDate,
+                endDate,
+                reason,
+                days: leaveDays,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            
+            leaveRequests.push(newRequest);
+            saveLeaveRequests();
+            
+            // Update UI
+            renderUserLeaveRequests();
+            renderCalendar();
+            
+            // Clear form
+            document.getElementById('leave-request-form').reset();
+            
+            alert('Leave request submitted successfully!');
+        }
+
+        // Render user's leave requests
+        function renderUserLeaveRequests() {
+            const tbody = document.getElementById('user-leave-requests');
+            tbody.innerHTML = '';
+            
+            const userRequests = leaveRequests
+                .filter(req => req.userId === currentUser.id)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            const pendingCount = userRequests.filter(req => req.status === 'pending').length;
+            const approvedCount = userRequests.filter(req => req.status === 'approved').length;
+            
+            document.getElementById('pending-count').textContent = pendingCount;
+            document.getElementById('approved-count').textContent = approvedCount;
+            
+            if (userRequests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No leave requests yet</td></tr>';
+                return;
+            }
+            
+            userRequests.forEach(request => {
+                const tr = document.createElement('tr');
+                
+                const statusClass = {
+                    'pending': 'leave-status-pending',
+                    'approved': 'leave-status-approved',
+                    'rejected': 'leave-status-rejected'
+                }[request.status];
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${request.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${formatDate(request.startDate)} - ${formatDate(request.endDate)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">${request.days}</td>
+                    <td class="px-6 py-4">${request.reason}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 rounded ${statusClass}">${request.status}</span>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render pending requests for admin
+        function renderPendingRequests() {
+            const tbody = document.getElementById('admin-pending-requests');
+            tbody.innerHTML = '';
+            
+            const pendingRequests = leaveRequests
+                .filter(req => req.status === 'pending')
+                .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            
+            if (pendingRequests.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No pending requests</td></tr>';
+                return;
+            }
+            
+            pendingRequests.forEach(request => {
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${request.userName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${request.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${formatDate(request.startDate)} - ${formatDate(request.endDate)}
+                    </td>
+                    <td class="px-6 py-4">${request.reason}</td>
+                    <td class="px-6 py-4 whitespace-nowrap space-x-2">
+                        <button class="approve-btn px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200" data-id="${request.id}">Approve</button>
+                        <button class="reject-btn px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200" data-id="${request.id}">Reject</button>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+            
+            // Add event listeners to buttons
+            document.querySelectorAll('.approve-btn').forEach(btn => {
+                btn.addEventListener('click', () => handleRequestAction(btn.getAttribute('data-id'), 'approved'));
+            });
+            
+            document.querySelectorAll('.reject-btn').forEach(btn => {
+                btn.addEventListener('click', () => handleRequestAction(btn.getAttribute('data-id'), 'rejected'));
+            });
+        }
+
+        // Handle approve/reject actions
+        function handleRequestAction(requestId, action) {
+            const request = leaveRequests.find(req => req.id === requestId);
+            if (!request) return;
+            
+            request.status = action;
+            
+            // If approved, deduct from user's leave balance
+            if (action === 'approved') {
+                const user = users.find(u => u.id === request.userId);
+                if (user) {
+                    user.remainingLeave -= request.days;
+                    saveUsers();
+                }
+            }
+            
+            saveLeaveRequests();
+            renderPendingRequests();
+            
+            // Update the requester's view if they're currently viewing the page
+            if (currentUser.id === request.userId) {
+                renderUserLeaveRequests();
+            }
+            
+            // Update calendar
+            renderCalendar();
+        }
+
+        // Render employee list
+        function renderEmployeeList() {
+            const tbody = document.getElementById('employee-list');
+            tbody.innerHTML = '';
+            
+            const filteredUsers = users.filter(user => user.role !== 'admin');
+            
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No employees yet</td></tr>';
+                return;
+            }
+            
+            filteredUsers.forEach(user => {
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${user.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.department}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${user.remainingLeave}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Filter employees by search
+        function filterEmployees() {
+            const searchTerm = document.getElementById('employee-search').value.toLowerCase();
+            const rows = document.getElementById('employee-list').querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const email = row.cells[1].textContent.toLowerCase();
+                const shouldShow = name.includes(searchTerm) || email.includes(searchTerm);
+                row.style.display = shouldShow ? '' : 'none';
+            });
+        }
+
+        // Render calendar
+        function renderCalendar() {
+            const month = parseInt(document.getElementById('calendar-month').value);
+            const year = parseInt(document.getElementById('calendar-year').value);
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDay = firstDay.getDay();
+            
+            let calendarHTML = '';
+            let dayCount = 1;
+            
+            // Calendar header
+            let header = `
+                <thead>
+                    <tr>
+                        <th class="p-2">Sun</th>
+                        <th class="p-2">Mon</th>
+                        <th class="p-2">Tue</th>
+                        <th class="p-2">Wed</th>
+                        <th class="p-2">Thu</th>
+                        <th class="p-2">Fri</th>
+                        <th class="p-2">Sat</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            // Calendar body
+            for (let i = 0; i < 6; i++) { // 6 rows max
+                calendarHTML += '<tr>';
+                
+                for (let j = 0; j < 7; j++) { // 7 days/week
+                    if (i === 0 && j < startingDay) {
+                        calendarHTML += '<td class="p-2"></td>';
+                    } else if (dayCount > daysInMonth) {
+                        calendarHTML += '<td class="p-2"></td>';
+                    } else {
+                        const dateStr = `${year}-${month + 1}-${dayCount}`;
+                        const leaveOnThisDay = leaveRequests.filter(req => 
+                            isDateInRange(dateStr, req.startDate, req.endDate)
+                        );
+                        
+                        let dayContent = dayCount;
+                        let cellClass = '';
+                        let tooltip = '';
+                        
+                        if (leaveOnThisDay.length > 0) {
+                            cellClass = 'has-leave ';
+                            const userLeaves = leaveOnThisDay.filter(req => req.userId === currentUser.id);
+                            const otherLeaves = leaveOnThisDay.filter(req => req.userId !== currentUser.id);
+                            
+                            // User's own leaves show as blue
+                            if (userLeaves.length > 0) {
+                                cellClass += 'bg-blue-100 ';
+                            }
+                            
+                            // Others' leaves show by status
+                            otherLeaves.forEach(req => {
+                                tooltip += `${req.userName}: ${req.status}\n`;
+                                switch(req.status) {
+                                    case 'pending':
+                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-yellow-100 ';
+                                        break;
+                                    case 'approved':
+                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-green-100 ';
+                                        break;
+                                    case 'rejected':
+                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-red-100 ';
+                                        break;
+                                }
+                            });
+                            
+                            if (tooltip) {
+                                dayContent = `
+                                    <div class="relative has-leave">
+                                        ${dayCount}
+                                        <div class="tooltip absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-sm bg-black text-white rounded opacity-0 transition-opacity">
+                                            ${tooltip}
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }
+                        
+                        calendarHTML += `<td class="${cellClass}calendar-day p-1 align-top" style="height: 80px;">
+                            <div class="text-right px-1">${dayContent}</div>
+                        </td>`;
+                        
+                        dayCount++;
+                    }
+                }
+                
+                calendarHTML += '</tr>';
+                
+                if (dayCount > daysInMonth) break;
+            }
+            
+            document.getElementById('calendar-body').innerHTML = calendarHTML;
+            
+            // Show month/year
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            // document.getElementById('current-month').textContent = `${monthNames[month]} ${year}`;
+            document.getElementById('calendar-month').value = month;
+            document.getElementById('calendar-year').value = year;
+        }
+
+        // Handle add employee
+        function handleAddEmployee(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('new-emp-name').value;
+            const email = document.getElementById('new-emp-email').value;
+            const department = document.getElementById('new-emp-dept').value;
+            const leaveBalance = document.getElementById('new-emp-leave').value;
+            
+            if (!name || !email || !department || !leaveBalance) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            if (users.some(u => u.email === email)) {
+                alert('Email already exists');
+                return;
+            }
+            
+            const newUser = {
+                id: generateId(),
+                name,
+                email,
+                password: '123456', // Default password
+                role: 'employee',
+                department,
+                leaveBalance: parseInt(leaveBalance),
+                remainingLeave: parseInt(leaveBalance)
+            };
+            
+            users.push(newUser);
+            saveUsers();
+            
+            // Clear form
+            document.getElementById('add-employee-form').reset();
+            
+            // Update UI
+            renderEmployeeList();
+            
+            alert('Employee added successfully!');
+        }
+
+        // Save system settings
+        function saveSettings() {
+            const defaultLeaveDays = document.getElementById('default-leave-days').value;
+            settings.defaultLeaveDays = parseInt(defaultLeaveDays);
+            localStorage.setItem('leaveSystemSettings', JSON.stringify(settings));
+            alert('Settings saved!');
+        }
+
+        // Helper functions
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+        
+        function formatDate(dateStr) {
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateStr).toLocaleDateString(undefined, options);
+        }
+        
+        function isDateInRange(dateStr, startDateStr, endDateStr) {
+            const date = new Date(dateStr);
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            return date >= startDate && date <= endDate;
+        }
+        
+        function saveUsers() {
+            localStorage.setItem('leaveSystemUsers', JSON.stringify(users));
+        }
+        
+        function saveLeaveRequests() {
+            localStorage.setItem('leaveSystemRequests', JSON.stringify(leaveRequests));
+        }
+
+        // Load sample data if empty (for first-time users)
+        function loadSampleDataIfEmpty() {
+            if (users.length === 0 && leaveRequests.length === 0) {
+                // Sample admin
+                users.push({
+                    id: generateId(),
+                    name: 'Admin',
+                    email: 'admin@school.edu',
+                    password: 'admin123',
+                    role: 'admin',
+                    department: 'Administration',
+                    leaveBalance: 0,
+                    remainingLeave: 0
+                });
+                
+                // Sample employees
+                const departments = ['Teaching', 'Teaching', 'Teaching', 'Non-Teaching', 'Non-Teaching', 'Support'];
+                
+                for (let i = 1; i <= 6; i++) {
+                    users.push({
+                        id: generateId(),
+                        name: `Employee ${i}`,
+                        email: `employee${i}@school.edu`,
+                        password: '123456',
+                        role: 'employee',
+                        department: departments[i-1],
+                        leaveBalance: 15,
+                        remainingLeave: 15 - Math.floor(Math.random() * 5)
+                    });
+                }
+                
+                // Sample leave requests
+                const today = new Date();
+                for (let i = 1; i <= 8; i++) {
+                    const startDate = new Date();
+                    startDate.setDate(today.getDate() + i * 3);
+                    
+                    const endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + Math.floor(Math.random() * 3));
+                    
+                    leaveRequests.push({
+                        id: generateId(),
+                        userId: users[1 + Math.floor(Math.random() * 6)].id,
+                        userName: `Employee ${1 + Math.floor(Math.random() * 6)}`,
+                        type: ['annual', 'sick', 'personal'][Math.floor(Math.random() * 3)],
+                        duration: ['full', 'half-am', 'half-pm'][Math.floor(Math.random() * 3)],
+                        startDate: formatDateForInput(startDate),
+                        endDate: formatDateForInput(endDate),
+                        reason: ['Family event', 'Doctor appointment', 'Personal reasons', 'Vacation'][Math.floor(Math.random() * 4)],
+                        days: (endDate.getDate() - startDate.getDate() + 1) * (Math.random() > 0.5 ? 1 : 0.5),
+                        status: ['pending', 'approved', 'rejected'][Math.floor(i / 3)],
+                        createdAt: new Date().toISOString()
+                    });
+                }
+                
+                saveUsers();
+                saveLeaveRequests();
+            }
+        }
+        
+        function formatDateForInput(date) {
+            return date.toISOString().split('T')[0];
+        }
+    </script>
+</body>
+</html>
