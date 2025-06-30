@@ -1,925 +1,214 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Leave Management System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #3b82f6;
-            --secondary-color: #1d4ed8;
-        }
+<script>
+// ... (previous JavaScript code remains the same until line 1954)
+
+function getLeavesForDate(dateString) {
+    const date = new Date(dateString);
+    const result = [];
+    
+    leaveRequests.forEach(leave => {
+        const startDate = new Date(leave.startDate);
+        const endDate = new Date(leave.endDate);
         
-        .leave-type-vacation { background-color: #fbbf24; }
-        .leave-type-sick { background-color: #84cc16; }
-        .leave-type-maternity { background-color: #ec4899; }
-        .leave-type-paternity { background-color: #a855f7; }
-        .leave-type-study { background-color: #f59e0b; }
-        .leave-type-local { background-color: #10b981; }
-        .leave-type-forced { background-color: #64748b; }
-        .leave-type-privilege { background-color: #06b6d4; }
-        .leave-type-solo { background-color: #d946ef; }
-        .leave-type-vawc { background-color: #ef4444; }
-        .leave-type-rehab { background-color: #14b8a6; }
-        .leave-type-women { background-color: #f43f5e; }
-        .leave-type-calamity { background-color: #f97316; }
-        .leave-type-adoption { background-color: #8b5cf6; }
-        
-        .calendar-day.has-leave {
-            position: relative;
+        if (date >= startDate && date <= endDate) {
+            const employee = employees.find(emp => emp.id === leave.employeeId);
+            if (employee) {
+                result.push({
+                    ...leave,
+                    employeeName: employee.name
+                });
+            }
         }
+    });
+    
+    return result;
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    generateCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    generateCalendar();
+}
+
+function showLeaveDetails(leaveId) {
+    selectedLeaveId = leaveId;
+    const leave = leaveRequests.find(req => req.id === leaveId);
+    
+    if (!leave) return;
+    
+    const employee = employees.find(emp => emp.id === leave.employeeId);
+    const leaveClass = leaveTypeClasses[leave.leaveType] || '';
+    
+    document.getElementById('leaveDetailsContent').innerHTML = `
+        <div>
+            <h3 class="font-medium text-gray-900 mb-1">Employee</h3>
+            <p class="text-gray-700">${employee?.name || 'Unknown'} (${employee?.position || 'Position not specified'})</p>
+        </div>
+        <div class="flex items-center">
+            <span class="leave-dot ${leaveClass}"></span>
+            <h3 class="font-medium text-gray-900 mb-1">Leave Type</h3>
+        </div>
+        <p class="text-gray-700">${leave.leaveType}</p>
+        <div>
+            <h3 class="font-medium text-gray-900 mb-1">Dates</h3>
+            <p class="text-gray-700">${formatDate(leave.startDate)} to ${formatDate(leave.endDate)} (${leave.duration} days)</p>
+        </div>
+        <div>
+            <h3 class="font-medium text-gray-900 mb-1">Status</h3>
+            <p class="text-gray-700"><span class="${getStatusClass(leave.status)} px-2 py-1 rounded-full">${leave.status.toUpperCase()}</span></p>
+        </div>
+        <div>
+            <h3 class="font-medium text-gray-900 mb-1">Reason</h3>
+            <p class="text-gray-700">${leave.reason}</p>
+        </div>
+    `;
+    
+    // Show approval buttons if admin and leave is pending
+    const approvalButtons = document.getElementById('leaveApprovalButtons');
+    if (isAdmin && leave.status === 'pending') {
+        approvalButtons.classList.remove('hidden');
+    } else {
+        approvalButtons.classList.add('hidden');
+    }
+    
+    document.getElementById('leaveDetailsModal').classList.remove('hidden');
+}
+
+function closeLeaveDetailsModal() {
+    document.getElementById('leaveDetailsModal').classList.add('hidden');
+}
+
+function approveLeaveRequest() {
+    const leaveIndex = leaveRequests.findIndex(req => req.id === selectedLeaveId);
+    if (leaveIndex !== -1) {
+        leaveRequests[leaveIndex].status = 'approved';
+        alert('Leave request approved successfully!');
+        populateLeaveRequestsTable();
+        generateCalendar();
+        updateDashboard();
+        closeLeaveDetailsModal();
+    }
+}
+
+function rejectLeaveRequest() {
+    const leaveIndex = leaveRequests.findIndex(req => req.id === selectedLeaveId);
+    if (leaveIndex !== -1) {
+        leaveRequests[leaveIndex].status = 'rejected';
+        alert('Leave request rejected.');
+        populateLeaveRequestsTable();
+        generateCalendar();
+        updateDashboard();
+        closeLeaveDetailsModal();
+    }
+}
+
+function populateEmployeesTable() {
+    if (!isAdmin) return;
+    
+    const tableBody = document.getElementById('employeesTableBody');
+    tableBody.innerHTML = '';
+    
+    employees.forEach(employee => {
+        if (employee.id === currentUser.id) return; // Skip current admin
         
-        .calendar-day.has-leave:after {
-            content: '';
-            position: absolute;
-            bottom: 5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--primary-color);
-        }
-        
-        .modal {
-            transition: opacity 0.2s ease-in-out;
-        }
-        
-        .leave-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-    </style>
-</head>
-<body class="bg-gray-100">
-    <!-- Auth Modal -->
-    <div id="authModal" class="modal fixed inset-0 flex items-center justify-center z-50" style="background-color: rgba(0,0,0,0.5);">
-        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800" id="authTitle">Login</h2>
-                <button onclick="closeAuthModal()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.id}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.name}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.email}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.position}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.department}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">
+                <button onclick="deleteEmployee(${employee.id})" class="text-red-600 hover:text-red-800">
+                    <i class="fas fa-trash-alt"></i>
                 </button>
-            </div>
-            <form id="authForm" onsubmit="handleAuth(event)">
-                <div id="nameField" class="mb-4 hidden">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="name">Full Name</label>
-                    <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="name" type="text" placeholder="John Doe">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
-                    <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="email" type="email" placeholder="your@email.com" required>
-                </div>
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
-                    <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="password" type="password" placeholder="••••••••" required minlength="6">
-                </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150">
-                    <span id="authButtonText">Login</span>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+function deleteEmployee(employeeId) {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+    
+    employees = employees.filter(emp => emp.id !== employeeId);
+    populateEmployeesTable();
+}
+
+function showAddEmployeeModal() {
+    document.getElementById('addEmployeeModal').classList.remove('hidden');
+}
+
+function closeAddEmployeeModal() {
+    document.getElementById('addEmployeeModal').classList.add('hidden');
+}
+
+function addEmployee(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('employeeName').value;
+    const email = document.getElementById('employeeEmail').value;
+    const position = document.getElementById('employeePosition').value;
+    const department = document.getElementById('employeeDepartment').value;
+    const employeeType = document.getElementById('employeeType').value;
+    const password = document.getElementById('initialPassword').value;
+    
+    if (employees.some(emp => emp.email === email)) {
+        alert('An employee with this email already exists.');
+        return;
+    }
+    
+    const newEmployee = {
+        id: Math.max(...employees.map(emp => emp.id)) + 1,
+        name,
+        email,
+        position,
+        department,
+        isAdmin: employeeType === 'admin',
+        password: password
+    };
+    
+    employees.push(newEmployee);
+    populateEmployeesTable();
+    document.getElementById('addEmployeeForm').reset();
+    closeAddEmployeeModal();
+    
+    alert(`Employee ${name} added successfully!`);
+}
+
+function populateLeaveRequestsTable() {
+    if (!isAdmin) return;
+    
+    const tableBody = document.getElementById('leaveRequestsTableBody');
+    tableBody.innerHTML = '';
+    
+    const sortedRequests = [...leaveRequests].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    
+    sortedRequests.forEach(request => {
+        const employee = employees.find(emp => emp.id === request.employeeId);
+        if (!employee) return;
+        
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="py-2 px-3 text-sm text-gray-700">${employee.name}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${request.leaveType}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${formatDate(request.startDate)} - ${formatDate(request.endDate)}</td>
+            <td class="py-2 px-3 text-sm text-gray-700">${request.duration} days</td>
+            <td class="py-2 px-3 text-sm text-gray-700">
+                <span class="${getStatusClass(request.status)} px-2 py-1 rounded-full">${request.status.toUpperCase()}</span>
+            </td>
+            <td class="py-2 px-3 text-sm text-gray-700">
+                <button onclick="showLeaveDetails(${request.id})" class="text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-eye"></i>
                 </button>
-                <div class="mt-4 text-center">
-                    <a href="#" id="switchAuthLink" class="text-blue-600 hover:text-blue-800 text-sm" onclick="switchAuthMode()">Don't have an account? Sign up</a>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Main Container -->
-    <div id="appContainer" class="hidden min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-                <div class="flex items-center">
-                    <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/b5c021f2-77e4-49e4-b3f2-13216f7b159a.png" alt="Company logo with solid blue background" class="h-10">
-                    <h1 class="ml-4 text-xl font-bold text-gray-900">Employee Leave Management</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span id="userName" class="text-gray-700 font-medium"></span>
-                    <button id="logoutButton" onclick="logout()" class="text-gray-600 hover:text-gray-900 flex items-center">
-                        <i class="fas fa-sign-out-alt mr-2"></i>
-                        Logout
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-            <div class="flex flex-col md:flex-row gap-6">
-                <!-- Sidebar -->
-                <aside class="md:w-1/4">
-                    <nav class="space-y-2">
-                        <button id="dashboardBtn" onclick="showSection('dashboard')" class="w-full text-left px-4 py-2 bg-blue-600 text-white rounded-md">
-                            <i class="fas fa-home mr-2"></i>Dashboard
-                        </button>
-                        <button id="leaveRequestBtn" onclick="showSection('leaveRequest')" class="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-calendar-plus mr-2"></i>Request Leave
-                        </button>
-                        <button id="calendarBtn" onclick="showSection('calendarView')" class="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-calendar-alt mr-2"></i>Calendar
-                        </button>
-                        <div id="adminButtons" class="space-y-2 hidden">
-                            <button id="employeesBtn" onclick="showSection('employees')" class="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-users mr-2"></i>Employees
-                            </button>
-                            <button id="leaveApprovalBtn" onclick="showSection('leaveApproval')" class="w-full text-left px-4 py-2 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-check-circle mr-2"></i>Approve Leaves
-                            </button>
-                        </div>
-                    </nav>
-                </aside>
-
-                <!-- Content Area -->
-                <div class="md:w-3/4">
-                    <!-- Dashboard Section -->
-                    <section id="dashboard" class="section-content bg-white rounded-lg shadow-sm p-6">
-                        <h2 class="text-xl font-bold mb-4 text-gray-800">Dashboard</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                <h3 class="font-medium text-gray-700">Available Leaves</h3>
-                                <p id="availableLeaves" class="text-2xl font-bold text-blue-600 mt-2">15 days</p>
-                            </div>
-                            <div class="bg-green-50 p-4 rounded-lg border border-green-100">
-                                <h3 class="font-medium text-gray-700">Pending Requests</h3>
-                                <p id="pendingRequests" class="text-2xl font-bold text-green-600 mt-2">2 requests</p>
-                            </div>
-                            <div class="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                                <h3 class="font-medium text-gray-700">Upcoming Leaves</h3>
-                                <p id="upcomingLeaves" class="text-2xl font-bold text-orange-600 mt-2">1 scheduled</p>
-                            </div>
-                        </div>
-                        <div class="bg-white border rounded-lg overflow-hidden">
-                            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-lg font-medium text-gray-800">Recent Leave Activity</h3>
-                            </div>
-                            <div class="divide-y divide-gray-200">
-                                <div id="recentLeaves" class="p-4">
-                                    <!-- Recent leaves will be populated here -->
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Leave Request Section -->
-                    <section id="leaveRequest" class="section-content hidden bg-white rounded-lg shadow-sm p-6">
-                        <h2 class="text-xl font-bold mb-4 text-gray-800">Request Leave</h2>
-                        <form id="leaveRequestForm" onsubmit="submitLeaveRequest(event)">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="leaveType">Leave Type</label>
-                                    <select id="leaveType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                        <option value="">Select Leave Type</option>
-                                        <option value="Local Credits">Local Credits</option>
-                                        <option value="Vacation Leave">Vacation Leave</option>
-                                        <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
-                                        <option value="Sick Leave">Sick Leave</option>
-                                        <option value="Maternity Leave">Maternity Leave</option>
-                                        <option value="Paternity Leave">Paternity Leave</option>
-                                        <option value="Special Privilege Leave">Special Privilege Leave</option>
-                                        <option value="Solo Parent Leave">Solo Parent Leave</option>
-                                        <option value="Study Leave">Study Leave</option>
-                                        <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
-                                        <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
-                                        <option value="Special Leave Benefits for Women">Special Leave Benefits for Women</option>
-                                        <option value="Special Emergency (Calamity) Leave">Special Emergency (Calamity) Leave</option>
-                                        <option value="Adoption Leave">Adoption Leave</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="startDate">Start Date</label>
-                                    <input id="startDate" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                </div>
-                                <div>
-                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="endDate">End Date</label>
-                                    <input id="endDate" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                </div>
-                                <div>
-                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="duration">Duration (days)</label>
-                                    <input id="duration" type="number" min="0.5" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                </div>
-                            </div>
-                            <div class="mt-6">
-                                <label class="block text-gray-700 text-sm font-bold mb-2" for="reason">Reason</label>
-                                <textarea id="reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Brief explanation for your leave request..." required></textarea>
-                            </div>
-                            <div class="mt-6">
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150">
-                                    Submit Request
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <!-- Calendar View Section -->
-                    <section id="calendarView" class="section-content hidden bg-white rounded-lg shadow-sm p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-gray-800">Leave Calendar</h2>
-                            <div class="flex space-x-2">
-                                <button onclick="previousMonth()" class="p-2 rounded-md hover:bg-gray-100">
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-                                <h3 id="currentMonthYear" class="font-medium text-gray-700">January 2025</h3>
-                                <button onclick="nextMonth()" class="p-2 rounded-md hover:bg-gray-100">
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full">
-                                <thead>
-                                    <tr>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Sun</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Mon</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Tue</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Wed</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Thu</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Fri</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold">Sat</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="calendarBody">
-                                    <!-- Calendar will be generated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="mt-6">
-                            <h3 class="font-medium text-gray-800 mb-2">Leave Legend</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-vacation"></span>
-                                    <span class="text-sm">Vacation</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-sick"></span>
-                                    <span class="text-sm">Sick</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-maternity"></span>
-                                    <span class="text-sm">Maternity</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-paternity"></span>
-                                    <span class="text-sm">Paternity</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-study"></span>
-                                    <span class="text-sm">Study</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-local"></span>
-                                    <span class="text-sm">Local</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <span class="leave-dot leave-type-forced"></span>
-                                    <span class="text-sm">Forced</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Employees Section (Admin Only) -->
-                    <section id="employees" class="section-content hidden bg-white rounded-lg shadow-sm p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold text-gray-800">Employees</h2>
-                            <button onclick="showAddEmployeeModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-md text-sm">
-                                <i class="fas fa-plus mr-1"></i> Add Employee
-                            </button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full">
-                                <thead>
-                                    <tr>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">ID</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Name</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Email</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Position</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Department</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="employeesTableBody">
-                                    <!-- Employees will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <!-- Leave Approval Section (Admin Only) -->
-                    <section id="leaveApproval" class="section-content hidden bg-white rounded-lg shadow-sm p-6">
-                        <h2 class="text-xl font-bold mb-4 text-gray-800">Leave Approval</h2>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full">
-                                <thead>
-                                    <tr>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Employee</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Leave Type</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Dates</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Duration</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Status</th>
-                                        <th class="py-2 px-3 bg-gray-100 text-gray-700 text-sm font-semibold text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="leaveRequestsTableBody">
-                                    <!-- Leave requests will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                </div>
-            </div>
-        </main>
-
-        <!-- Modal for Leave Details -->
-        <div id="leaveDetailsModal" class="modal fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0,0,0,0.5);">
-            <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800">Leave Details</h2>
-                    <button onclick="closeLeaveDetailsModal()" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div id="leaveDetailsContent" class="space-y-4">
-                    <!-- Leave details will be populated here -->
-                </div>
-                <div id="leaveApprovalButtons" class="mt-6 flex justify-end space-x-3 hidden">
-                    <button onclick="approveLeaveRequest()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">
-                        Approve
-                    </button>
-                    <button onclick="rejectLeaveRequest()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">
-                        Reject
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal for Add Employee -->
-        <div id="addEmployeeModal" class="modal fixed inset-0 flex items-center justify-center z-50 hidden" style="background-color: rgba(0,0,0,0.5);">
-            <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800">Add New Employee</h2>
-                    <button onclick="closeAddEmployeeModal()" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <form id="addEmployeeForm" onsubmit="addEmployee(event)">
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="employeeName">Full Name</label>
-                        <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="employeeName" type="text" placeholder="John Doe" required>
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="employeeEmail">Email</label>
-                        <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="employeeEmail" type="email" placeholder="your@email.com" required>
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="employeePosition">Position</label>
-                        <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="employeePosition" type="text" placeholder="Teacher/Staff" required>
-                    </div>
-                    <div class="mb-6">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="employeeDepartment">Department</label>
-                        <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="employeeDepartment" type="text" placeholder="Department" required>
-                    </div>
-                    <div class="mb-6">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="employeeType">Employee Type</label>
-                        <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="employeeType" required>
-                            <option value="regular">Regular Employee</option>
-                            <option value="admin">Administrator</option>
-                        </select>
-                    </div>
-                    <div class="mb-6">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="initialPassword">Initial Password</label>
-                        <input class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" id="initialPassword" type="password" placeholder="••••••••" required minlength="6">
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150">
-                        Add Employee
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Global variables
-        let currentUser = null;
-        let isAdmin = false;
-        let currentDate = new Date();
-        let selectedLeaveId = null;
-        let employees = [];
-        let leaveRequests = [];
-        
-        // Sample data - in a real app, this would come from a database
-        const leaveTypes = [
-            "Local Credits",
-            "Vacation Leave",
-            "Mandatory/Forced Leave",
-            "Sick Leave",
-            "Maternity Leave",
-            "Paternity Leave",
-            "Special Privilege Leave",
-            "Solo Parent Leave",
-            "Study Leave",
-            "10-Day VAWC Leave",
-            "Rehabilitation Privilege",
-            "Special Leave Benefits for Women",
-            "Special Emergency (Calamity) Leave",
-            "Adoption Leave"
-        ];
-        
-        const leaveTypeClasses = {
-            "Local Credits": "leave-type-local",
-            "Vacation Leave": "leave-type-vacation",
-            "Mandatory/Forced Leave": "leave-type-forced",
-            "Sick Leave": "leave-type-sick",
-            "Maternity Leave": "leave-type-maternity",
-            "Paternity Leave": "leave-type-paternity",
-            "Special Privilege Leave": "leave-type-privilege",
-            "Solo Parent Leave": "leave-type-solo",
-            "Study Leave": "leave-type-study",
-            "10-Day VAWC Leave": "leave-type-vawc",
-            "Rehabilitation Privilege": "leave-type-rehab",
-            "Special Leave Benefits for Women": "leave-type-women",
-            "Special Emergency (Calamity) Leave": "leave-type-calamity",
-            "Adoption Leave": "leave-type-adoption"
-        };
-        
-        // Initialize the app when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize with auth modal
-            document.getElementById('authModal').classList.remove('hidden');
-            
-            // For demo purposes, let's add some sample data
-            createSampleData();
-            
-            // Set up event listeners for date inputs
-            document.getElementById('startDate').addEventListener('change', calculateDuration);
-            document.getElementById('endDate').addEventListener('change', calculateDuration);
-            
-            // Set up today's date as default for leave request
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            
-            document.getElementById('startDate').valueAsDate = today;
-            document.getElementById('endDate').valueAsDate = tomorrow;
-            
-            // Calculate initial duration
-            calculateDuration();
-        });
-        
-        // Create sample data for demo
-        function createSampleData() {
-            // Create sample employees
-            employees = [
-                { id: 1, name: "Admin User", email: "admin@school.edu", position: "Administrator", department: "Administration", isAdmin: true, password: "admin123" },
-                { id: 2, name: "John Smith", email: "john.smith@school.edu", position: "Math Teacher", department: "Mathematics", password: "password123" },
-                { id: 3, name: "Maria Garcia", email: "maria.garcia@school.edu", position: "Science Teacher", department: "Science", password: "password123" },
-                { id: 4, name: "Robert Johnson", email: "robert.johnson@school.edu", position: "English Teacher", department: "English", password: "password123" },
-                { id: 5, name: "Sarah Lee", email: "sarah.lee@school.edu", position: "History Teacher", department: "Social Studies", password: "password123" },
-                { id: 6, name: "Michael Brown", email: "michael.brown@school.edu", position: "Guidance Counselor", department: "Student Services", password: "password123" },
-                { id: 7, name: "Lisa Wong", email: "lisa.wong@school.edu", position: "Librarian", department: "Library", password: "password123" },
-                { id: 8, name: "David Miller", email: "david.miller@school.edu", position: "IT Specialist", department: "Technology", password: "password123" },
-                { id: 9, name: "Anna Chen", email: "anna.chen@school.edu", position: "Registrar", department: "Administration", password: "password123" },
-                { id: 10, name: "James Wilson", email: "james.wilson@school.edu", position: "Maintenance Supervisor", department: "Facilities", password: "password123" }
-            ];
-            
-            // Create sample leave requests
-            const now = new Date();
-            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            
-            leaveRequests = [
-                {
-                    id: 1,
-                    employeeId: 2,
-                    leaveType: "Vacation Leave",
-                    startDate: new Date(now.getFullYear(), now.getMonth(), 15).toISOString().split('T')[0],
-                    endDate: new Date(now.getFullYear(), now.getMonth(), 17).toISOString().split('T')[0],
-                    duration: 3,
-                    reason: "Family vacation",
-                    status: "pending",
-                    submittedAt: new Date()
-                },
-                {
-                    id: 2,
-                    employeeId: 3,
-                    leaveType: "Sick Leave",
-                    startDate: new Date(now.getFullYear(), now.getMonth(), 10).toISOString().split('T')[0],
-                    endDate: new Date(now.getFullYear(), now.getMonth(), 12).toISOString().split('T')[0],
-                    duration: 3,
-                    reason: "Flu symptoms",
-                    status: "approved",
-                    submittedAt: new Date()
-                },
-                {
-                    id: 3,
-                    employeeId: 5,
-                    leaveType: "Maternity Leave",
-                    startDate: nextMonth.toISOString().split('T')[0],
-                    endDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 3, 1).toISOString().split('T')[0],
-                    duration: 90,
-                    reason: "Maternity leave for newborn care",
-                    status: "approved",
-                    submittedAt: new Date()
-                }
-            ];
-        }
-        
-        // Handle authentication form (login/signup)
-        function handleAuth(event) {
-            event.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const isLogin = document.getElementById('authTitle').textContent === 'Login';
-            
-            if (isLogin) {
-                // Login logic
-                const user = employees.find(emp => emp.email === email && emp.password === password);
-                
-                if (user) {
-                    currentUser = user;
-                    isAdmin = user.isAdmin === true;
-                    
-                    // Update UI
-                    document.getElementById('authModal').classList.add('hidden');
-                    document.getElementById('appContainer').classList.remove('hidden');
-                    document.getElementById('userName').textContent = user.name;
-                    
-                    if (isAdmin) {
-                        document.getElementById('adminButtons').classList.remove('hidden');
-                    }
-                    
-                    // Show dashboard by default
-                    showSection('dashboard');
-                    updateDashboard();
-                    generateCalendar();
-                    populateEmployeesTable();
-                    populateLeaveRequestsTable();
-                } else {
-                    alert('Invalid email or password. Please try again.');
-                }
-            } else {
-                // Signup logic
-                const name = document.getElementById('name').value;
-                const emailExists = employees.some(emp => emp.email === email);
-                
-                if (emailExists) {
-                    alert('This email is already registered. Please use a different email.');
-                    return;
-                }
-                
-                // Create new user (non-admin by default)
-                const newUser = {
-                    id: employees.length + 1,
-                    name: name,
-                    email: email,
-                    position: "Teacher",
-                    department: "Education",
-                    password: password
-                };
-                
-                employees.push(newUser);
-                
-                // Automatically log in the new user
-                currentUser = newUser;
-                isAdmin = false;
-                
-                // Update UI
-                document.getElementById('authModal').classList.add('hidden');
-                document.getElementById('appContainer').classList.remove('hidden');
-                document.getElementById('userName').textContent = name;
-                
-                // Show dashboard by default
-                showSection('dashboard');
-                updateDashboard();
-                generateCalendar();
-                
-                alert('Account created successfully! Welcome to the Employee Leave Management System.');
-            }
-        }
-        
-        // Switch between login and signup modes
-        function switchAuthMode() {
-            const authTitle = document.getElementById('authTitle');
-            const authButtonText = document.getElementById('authButtonText');
-            const switchAuthLink = document.getElementById('switchAuthLink');
-            const nameField = document.getElementById('nameField');
-            
-            if (authTitle.textContent === 'Login') {
-                // Switch to signup
-                authTitle.textContent = 'Sign Up';
-                authButtonText.textContent = 'Sign Up';
-                switchAuthLink.textContent = 'Already have an account? Login';
-                nameField.classList.remove('hidden');
-            } else {
-                // Switch to login
-                authTitle.textContent = 'Login';
-                authButtonText.textContent = 'Login';
-                switchAuthLink.textContent = 'Don\'t have an account? Sign up';
-                nameField.classList.add('hidden');
-            }
-        }
-        
-        // Close auth modal
-        function closeAuthModal() {
-            document.getElementById('authModal').classList.add('hidden');
-        }
-        
-        // Logout function
-        function logout() {
-            currentUser = null;
-            isAdmin = false;
-            
-            // Reset form fields
-            document.getElementById('authForm').reset();
-            
-            // Show auth modal
-            document.getElementById('authModal').classList.remove('hidden');
-            document.getElementById('appContainer').classList.add('hidden');
-            
-            // Ensure the form is in login mode
-            document.getElementById('authTitle').textContent = 'Login';
-            document.getElementById('authButtonText').textContent = 'Login';
-            document.getElementById('switchAuthLink').textContent = 'Don\'t have an account? Sign up';
-            document.getElementById('nameField').classList.add('hidden');
-        }
-        
-        // Show/hide sections
-        function showSection(sectionId) {
-            // Hide all sections
-            document.querySelectorAll('.section-content').forEach(section => {
-                section.classList.add('hidden');
-            });
-            
-            // Reset active button styling
-            document.querySelectorAll('aside button').forEach(button => {
-                button.classList.remove('bg-blue-600', 'text-white');
-                button.classList.add('hover:bg-gray-200');
-            });
-            
-            // Show the selected section
-            document.getElementById(sectionId).classList.remove('hidden');
-            
-            // Update active button styling
-            const activeButton = document.getElementById(sectionId + 'Btn');
-            if (activeButton) {
-                activeButton.classList.add('bg-blue-600', 'text-white');
-                activeButton.classList.remove('hover:bg-gray-200');
-            }
-            
-            // Special handling for calendar view
-            if (sectionId === 'calendarView') {
-                generateCalendar();
-            }
-            
-            // Special handling for dashboard
-            if (sectionId === 'dashboard') {
-                updateDashboard();
-            }
-        }
-        
-        // Update dashboard stats
-        function updateDashboard() {
-            if (!currentUser) return;
-            
-            // Calculate available leaves (simple calculation)
-            document.getElementById('availableLeaves').textContent = '15';
-            
-            // Calculate pending requests for this user
-            const pendingCount = leaveRequests.filter(
-                req => req.employeeId === currentUser.id && req.status === 'pending'
-            ).length;
-            document.getElementById('pendingRequests').textContent = pendingCount;
-            
-            // Calculate upcoming leaves for this user
-            const today = new Date();
-            const upcomingCount = leaveRequests.filter(
-                req => req.employeeId === currentUser.id && 
-                      req.status === 'approved' && 
-                      new Date(req.startDate) >= today
-            ).length;
-            document.getElementById('upcomingLeaves').textContent = upcomingCount;
-            
-            // Populate recent leaves
-            const recentLeaves = leaveRequests
-                .filter(req => req.employeeId === currentUser.id)
-                .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-                .slice(0, 5);
-            
-            const recentLeavesContainer = document.getElementById('recentLeaves');
-            recentLeavesContainer.innerHTML = '';
-            
-            if (recentLeaves.length === 0) {
-                recentLeavesContainer.innerHTML = '<p class="text-gray-500">No recent leave activity</p>';
-                return;
-            }
-            
-            recentLeaves.forEach(leave => {
-                const employee = employees.find(emp => emp.id === leave.employeeId);
-                if (!employee) return;
-                
-                const leaveElement = document.createElement('div');
-                leaveElement.className = 'flex items-center py-2';
-                
-                const leaveClass = leaveTypeClasses[leave.leaveType] || '';
-                
-                leaveElement.innerHTML = `
-                    <div class="flex-grow">
-                        <div class="flex items-center">
-                            <span class="leave-dot ${leaveClass}" style="min-width: 10px;"></span>
-                            <span class="font-medium">${leave.leaveType}</span>
-                        </div>
-                        <div class="text-sm text-gray-600">${formatDate(leave.startDate)} - ${formatDate(leave.endDate)}</div>
-                    </div>
-                    <div class="text-sm">
-                        <span class="px-2 py-1 rounded-full ${getStatusClass(leave.status)}">${leave.status.toUpperCase()}</span>
-                    </div>
-                `;
-                
-                recentLeavesContainer.appendChild(leaveElement);
-            });
-        }
-        
-        // Format date as MM/DD/YYYY
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-        
-        // Get CSS class for status badge
-        function getStatusClass(status) {
-            switch (status) {
-                case 'approved': return 'bg-green-100 text-green-800';
-                case 'pending': return 'bg-yellow-100 text-yellow-800';
-                case 'rejected': return 'bg-red-100 text-red-800';
-                default: return 'bg-gray-100 text-gray-800';
-            }
-        }
-        
-        // Calculate duration between dates
-        function calculateDuration() {
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-            
-            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                return;
-            }
-            
-            // Calculate difference in days
-            const timeDiff = endDate.getTime() - startDate.getTime();
-            const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24)) + 1;
-            
-            document.getElementById('duration').value = dayDiff;
-        }
-        
-        // Submit leave request
-        function submitLeaveRequest(event) {
-            event.preventDefault();
-            
-            if (!currentUser) {
-                alert('Please log in to submit a leave request.');
-                return;
-            }
-            
-            const leaveType = document.getElementById('leaveType').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const duration = parseFloat(document.getElementById('duration').value);
-            const reason = document.getElementById('reason').value;
-            
-            // Validate dates
-            if (new Date(startDate) >= new Date(endDate)) {
-                alert('End date must be after start date.');
-                return;
-            }
-            
-            // Create new leave request
-            const newRequest = {
-                id: leaveRequests.length > 0 ? Math.max(...leaveRequests.map(req => req.id)) + 1 : 1,
-                employeeId: currentUser.id,
-                leaveType: leaveType,
-                startDate: startDate,
-                endDate: endDate,
-                duration: duration,
-                reason: reason,
-                status: isAdmin ? 'approved' : 'pending',
-                submittedAt: new Date()
-            };
-            
-            leaveRequests.push(newRequest);
-            
-            // Reset form
-            document.getElementById('leaveRequestForm').reset();
-            
-            // Set default dates
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            
-            document.getElementById('startDate').valueAsDate = today;
-            document.getElementById('endDate').valueAsDate = tomorrow;
-            
-            // Update dashboard
-            updateDashboard();
-            
-            // Update calendar
-            generateCalendar();
-            
-            // Update leave requests table if admin
-            if (isAdmin) {
-                populateLeaveRequestsTable();
-            }
-            
-            alert(`Leave request submitted successfully! Status: ${newRequest.status === 'approved' ? 'Approved' : 'Pending approval'}`);
-        }
-        
-        // Generate calendar view
-        function generateCalendar() {
-            const calendarBody = document.getElementById('calendarBody');
-            calendarBody.innerHTML = '';
-            
-            // Update month/year display
-            const monthNames = ["January", "February", "March", "April", "May", "June",
-                              "July", "August", "September", "October", "November", "December"];
-            document.getElementById('currentMonthYear').textContent = 
-                `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-            
-            // Get first day of month and total days in month
-            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-            const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-            
-            // Generate calendar grid
-            let date = 1;
-            for (let i = 0; i < 6; i++) {
-                // Stop if we've passed the last day of the month
-                if (date > daysInMonth) break;
-                
-                const row = document.createElement('tr');
-                
-                // Create cells for each day of the week
-                for (let j = 0; j < 7; j++) {
-                    const cell = document.createElement('td');
-                    cell.className = 'py-2 px-3 border h-24 align-top';
-                    
-                    if (i === 0 && j < firstDay) {
-                        // Empty cells before the first day of the month
-                        cell.textContent = '';
-                    } else if (date > daysInMonth) {
-                        // Empty cells after the last day of the month
-                        cell.textContent = '';
-                    } else {
-                        // Cells with dates
-                        const dateDiv = document.createElement('div');
-                        dateDiv.className = 'font-medium text-right mb-1';
-                        dateDiv.textContent = date;
-                        
-                        cell.appendChild(dateDiv);
-                        
-                        // Check if there are any leave requests for this date
-                        const currentMonth = currentDate.getMonth() + 1;
-                        const formattedDate = `${currentDate.getFullYear()}-${currentMonth < 10 ? '0' + currentMonth : currentMonth}-${date < 10 ? '0' + date : date}`;
-                        
-                        const leavesOnDate = getLeavesForDate(formattedDate);
-                        
-                        // Add leave indicators
-                        if (leavesOnDate.length > 0) {
-                            const leavesContainer = document.createElement('div');
-                            leavesContainer.className = 'mt-1 space-y-1 h-16 overflow-y-auto overflow-x-hidden';
-                            
-                            leavesOnDate.forEach(leave => {
-                                const leaveElement = document.createElement('div');
-                                leaveElement.className = 'text-xs px-2 py-1 rounded truncate cursor-pointer ' + (leaveTypeClasses[leave.leaveType] || 'bg-gray-200');
-                                leaveElement.textContent = `${leave.employeeName}`;
-                                leaveElement.title = `${leave.leaveType} (${leave.status})`;
-                                leaveElement.onclick = () => showLeaveDetails(leave.id);
-                                
-                                leavesContainer.appendChild(leaveElement);
-                            });
-                            
-                            cell.appendChild(leavesContainer);
-                        }
-                        
-                        date++;
-                    }
-                    
-                    row.appendChild(cell);
-                }
-                
-                calendarBody.appendChild(row);
-            }
-        }
-        
-        // Get leaves for a specific date
-        function getLeavesForDate(dateString) {
-            const date = new Date(dateString);
-            const result = [];
-            
-            leaveRequests.forEach(leave => {
-                const startDate = new Date(leave.startDate);
-                const endDate = new Date(leave.endDate);
-                
-                if (date >= startDate && date <= endDate) {
-                    const employee = employees.find(emp => emp.id === leave.employeeId
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+</script>
