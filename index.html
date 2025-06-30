@@ -894,7 +894,10 @@
                             
                             // Others' leaves show by status
                             otherLeaves.forEach(req => {
-                                tooltip += `${req.userName}: ${req.status}\n`;
+                                const statusText = req.status === 'approved' ? 
+                                    `${req.userName} (${getDisplayNameForLeaveType(req.type)})` : 
+                                    `${req.userName}: ${req.status}`;
+                                tooltip += `${statusText}\n`;
                                 switch(req.status) {
                                     case 'pending':
                                         if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-yellow-100 ';
@@ -922,6 +925,12 @@
                         
                         calendarHTML += `<td class="${cellClass}calendar-day p-1 align-top" style="height: 80px;">
                             <div class="text-right px-1">${dayContent}</div>
+                            ${leaveOnThisDay.some(req => req.status === 'approved') ? 
+                                `<div class="text-xs text-center mt-1 truncate">
+                                    ${leaveOnThisDay.filter(req => req.status === 'approved')
+                                        .map(req => req.userName)
+                                        .join(', ')}
+                                </div>` : ''}
                         </td>`;
                         
                         dayCount++;
