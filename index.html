@@ -148,10 +148,20 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
                                 <select id="leave-type" class="w-full p-2 border rounded">
-                                    <option value="annual">Annual Leave</option>
+                                    <option value="local-credits">Local Credits</option>
+                                    <option value="vacation">Vacation Leave</option>
+                                    <option value="mandatory">Mandatory/Forced Leave</option>
                                     <option value="sick">Sick Leave</option>
-                                    <option value="personal">Personal Leave</option>
-                                    <option value="bereavement">Bereavement Leave</option>
+                                    <option value="maternity">Maternity Leave</option>
+                                    <option value="paternity">Paternity Leave</option>
+                                    <option value="special-privilege">Special Privilege Leave</option>
+                                    <option value="solo-parent">Solo Parent Leave</option>
+                                    <option value="study">Study Leave</option>
+                                    <option value="vawc">10-Day VAWC Leave</option>
+                                    <option value="rehabilitation">Rehabilitation Privilege</option>
+                                    <option value="special-women">Special Leave Benefits for Women</option>
+                                    <option value="calamity">Special Emergency (Calamity Leave)</option>
+                                    <option value="adoption">Adoption Leave</option>
                                 </select>
                             </div>
                             <div>
@@ -665,7 +675,9 @@
                 }[request.status];
                 
                 tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">${request.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${getDisplayNameForLeaveType(request.type)}
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${formatDate(request.startDate)} - ${formatDate(request.endDate)}
                     </td>
@@ -985,6 +997,26 @@
             return Math.random().toString(36).substr(2, 9);
         }
         
+        function getDisplayNameForLeaveType(type) {
+            const types = {
+                'local-credits': 'Local Credits',
+                'vacation': 'Vacation Leave',
+                'mandatory': 'Mandatory/Forced Leave',
+                'sick': 'Sick Leave',
+                'maternity': 'Maternity Leave',
+                'paternity': 'Paternity Leave',
+                'special-privilege': 'Special Privilege Leave',
+                'solo-parent': 'Solo Parent Leave',
+                'study': 'Study Leave',
+                'vawc': '10-Day VAWC Leave',
+                'rehabilitation': 'Rehabilitation Privilege',
+                'special-women': 'Special Leave Benefits for Women',
+                'calamity': 'Special Emergency (Calamity Leave)',
+                'adoption': 'Adoption Leave'
+            };
+            return types[type] || type;
+        }
+
         function formatDate(dateStr) {
             const options = { year: 'numeric', month: 'short', day: 'numeric' };
             return new Date(dateStr).toLocaleDateString(undefined, options);
@@ -1049,7 +1081,10 @@
                         id: generateId(),
                         userId: users[1 + Math.floor(Math.random() * 6)].id,
                         userName: `Employee ${1 + Math.floor(Math.random() * 6)}`,
-                        type: ['annual', 'sick', 'personal'][Math.floor(Math.random() * 3)],
+                        type: ['local-credits', 'vacation', 'mandatory', 'sick', 'maternity', 
+                                      'paternity', 'special-privilege', 'solo-parent', 'study', 
+                                      'vawc', 'rehabilitation', 'special-women', 'calamity', 
+                                      'adoption'][Math.floor(Math.random() * 14)],
                         duration: ['full', 'half-am', 'half-pm'][Math.floor(Math.random() * 3)],
                         startDate: formatDateForInput(startDate),
                         endDate: formatDateForInput(endDate),
