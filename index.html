@@ -24,6 +24,8 @@
     </style>
 </head>
 <body class="bg-gray-100">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
     <div id="auth-container" class="min-h-screen flex items-center justify-center px-4 py-12">
         <div class="w-full max-w-md">
             <div class="text-center mb-8">
@@ -193,6 +195,19 @@
         <main class="-mt-32">
             <div class="max-w-7xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
                 <div id="employee-dashboard" class="hidden">
+                    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+                        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                Leave Calendar
+                            </h3>
+                            <p class="mt-1 text-sm text-gray-500">
+                                View all approved leaves in the organization.
+                            </p>
+                        </div>
+                        <div class="p-4">
+                            <div id="leave-calendar"></div>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
                         <div class="bg-white overflow-hidden shadow rounded-lg card-hover">
                             <div class="px-4 py-5 sm:p-6">
@@ -753,9 +768,9 @@
             },
             {
                 id: 2,
-                name: "Jane Smith",
-                email: "jane@example.com",
-                password: "password123",
+                name: "Admin User",
+                email: "admin@example.com",
+                password: "admin123",
                 role: "admin",
                 leaves: {
                     annual: 20,
@@ -840,6 +855,47 @@
         // Global variables
         let currentUser = null;
         
+        // Calendar initialization
+        function initCalendar() {
+            const calendarEl = document.getElementById('leave-calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: getCalendarEvents()
+            });
+            calendar.render();
+        }
+        
+        function getCalendarEvents() {
+            return leaveRequests
+                .filter(request => request.status === 'Approved')
+                .map(request => {
+                    const employee = employees.find(e => e.id === request.employeeId);
+                    return {
+                        title: `${employee.name} (${request.type})`,
+                        start: request.startDate,
+                        end: request.endDate,
+                        backgroundColor: getEventColor(request.type),
+                        borderColor: getEventColor(request.type)
+                    };
+                });
+        }
+        
+        function getEventColor(leaveType) {
+            const colors = {
+                'Annual': '#3b82f6',
+                'Sick': '#ef4444', 
+                'Casual': '#10b981',
+                'Maternity Leave': '#8b5cf6',
+                'Paternity Leave': '#ec4899'
+            };
+            return colors[leaveType] || '#64748b';
+        }
+        
         // DOM elements
         const authContainer = document.getElementById('auth-container');
         const loginForm = document.getElementById('login-form');
@@ -912,6 +968,7 @@
                     employeeDashboard.classList.remove('hidden');
                     updateLeaveBalances();
                 }
+                initCalendar();
             } else {
                 alert('Invalid email or password');
             }
