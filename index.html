@@ -3,356 +3,620 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Management System</title>
+    <title>Employee Leave Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .leave-status-pending { background-color: #FEF3C7; color: #92400E; }
-        .leave-status-approved { background-color: #D1FAE5; color: #065F46; }
-        .leave-status-rejected { background-color: #FEE2E2; color: #991B1B; }
-        .leave-day { border-radius: 50%; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; }
-        .calendar-day.has-leave { cursor: pointer; }
-        #calendar th, #calendar td { height: 30px; text-align: center; }
-        #calendar td { padding: 5px; }
-        .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.3s; }
-        .has-leave:hover .tooltip { visibility: visible; opacity: 1; }
+        .leave-color {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+        .hidden {
+            display: none;
+        }
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Login/Signup Page (Shown First) -->
-    <div id="auth-page" class="flex items-center justify-center min-h-screen">
-        <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-            <h1 class="text-2xl font-bold text-center mb-8">Leave Management System</h1>
-            <div class="flex justify-between mb-4 border-b">
-                <button id="login-tab" class="font-medium py-2 px-4 border-b-2 border-blue-500">Login</button>
-                <button id="signup-tab" class="font-medium py-2 px-4 text-gray-500">Sign Up</button>
+<body class="bg-gray-100 font-sans">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Auth Container -->
+    <div id="auth-container" class="min-h-screen flex items-center justify-center px-4">
+        <div class="w-full max-w-md space-y-8">
+            <div class="text-center">
+                <img src="https://placehold.co/150x50/2563eb/white?text=Leave+System" alt="Blue company logo with white text reading Leave System" class="mx-auto h-12">
+                <h2 class="mt-6 text-3xl font-extrabold text-gray-900">Employee Leave Management</h2>
+                <p class="mt-2 text-sm text-gray-600">For CY 2025 Personnel</p>
             </div>
-            <!-- Login Form -->
-            <div id="login-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input id="login-email" type="email" class="w-full p-2 border rounded" placeholder="your@email.com">
+            <div class="mt-8 bg-white py-8 px-6 shadow rounded-lg sm:px-10">
+                <div id="auth-tabs" class="flex border-b justify-center mb-6">
+                    <button id="login-tab" class="px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600">Login</button>
+                    <button id="signup-tab" class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700">Sign Up</button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input id="login-password" type="password" class="w-full p-2 border rounded" placeholder="••••••••">
-                </div>
-                <button id="login-btn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
-                <p id="login-error" class="text-red-500 text-sm hidden">Invalid email or password.</p>
-            </div>
-            <!-- Signup Form -->
-            <div id="signup-form" class="space-y-4 hidden">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input id="signup-name" type="text" class="w-full p-2 border rounded" placeholder="John Doe">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input id="signup-email" type="email" class="w-full p-2 border rounded" placeholder="your@email.com">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password (min 6 chars)</label>
-                    <input id="signup-password" type="password" class="w-full p-2 border rounded" placeholder="••••••••">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                    <select id="signup-role" class="w-full p-2 border rounded">
-                        <option value="employee">Employee</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                    <input id="signup-department" type="text" class="w-full p-2 border rounded" placeholder="Teaching/Non-Teaching">
-                </div>
-                <button id="signup-btn" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Sign Up</button>
-                <p id="signup-error" class="text-red-500 text-sm hidden">Please fill all fields.</p>
-                <p id="signup-success" class="text-green-500 text-sm hidden">Success! Please login.</p>
+                
+                <!-- Login Form -->
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-gray-700">Email address</label>
+                        <div class="mt-1">
+                            <input id="login-email" name="email" type="email" autocomplete="email" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <div class="mt-1">
+                            <input id="login-password" name="password" type="password" autocomplete="current-password" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="remember-me" class="ml-2 block text-sm text-gray-900">Remember me</label>
+                        </div>
+                        <div class="text-sm">
+                            <a href="#" class="font-medium text-blue-600 hover:text-blue-500">Forgot your password?</a>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Sign in</button>
+                    </div>
+                </form>
+                
+                <!-- Signup Form -->
+                <form id="signup-form" class="space-y-6 hidden">
+                    <div>
+                        <label for="signup-email" class="block text-sm font-medium text-gray-700">Email address</label>
+                        <div class="mt-1">
+                            <input id="signup-email" name="email" type="email" autocomplete="email" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <div class="mt-1">
+                            <input id="signup-password" name="password" type="password" autocomplete="new-password" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="signup-confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                        <div class="mt-1">
+                            <input id="signup-confirm-password" name="confirm-password" type="password" autocomplete="new-password" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="signup-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <div class="mt-1">
+                            <input id="signup-name" name="name" type="text" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="signup-employee-id" class="block text-sm font-medium text-gray-700">Employee ID</label>
+                        <div class="mt-1">
+                            <input id="signup-employee-id" name="employee-id" type="text" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="signup-department" class="block text-sm font-medium text-gray-700">Department</label>
+                        <div class="mt-1">
+                            <select id="signup-department" name="department" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <option value="">Select Department</option>
+                                <option value="Teaching">Teaching</option>
+                                <option value="Non-Teaching">Non-Teaching</option>
+                                <option value="Admin">Admin</option>
+                                <option value="HR">Human Resources</option>
+                                <option value="Finance">Finance</option>
+                                <option value="IT">Information Technology</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Create Account</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- Main App (Hidden Initially) -->
-    <div id="app" class="container mx-auto px-4 py-8 hidden">
-        <header class="mb-8">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold text-gray-800">
-                    <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/f32a08f9-b440-436e-925a-d12c9abb8ed1.png" alt="Company logo with blue background and white text" class="inline-block mr-2 align-middle rounded-full" />
-                    Leave Management System
-                </h1>
-                <div id="user-info" class="flex items-center space-x-2">
-                    <span id="current-user" class="font-medium"></span>
-                    <button id="logout-btn" class="p-2 rounded-full hover:bg-gray-100">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
+    <!-- Main App Container -->
+    <div id="app-container" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <img src="https://placehold.co/150x50/2563eb/white?text=Leave+System" alt="Blue company logo with white text reading Leave System" class="h-10">
+                    <h1 class="ml-3 text-xl font-bold text-gray-900">Employee Leave Management</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative" id="notification-container">
+                        <button id="notification-btn" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <span class="sr-only">View notifications</span>
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span id="notification-count" class="absolute top-0 right-0 inline-block w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center hidden">0</span>
+                        </button>
+                    </div>
+                    <div class="relative" id="user-menu-container">
+                        <button id="user-menu-btn" class="flex items-center focus:outline-none">
+                            <img id="user-avatar" class="h-8 w-8 rounded-full" src="https://placehold.co/100/2563eb/white?text=ME" alt="Circular user profile placeholder with initials ME on blue background">
+                            <span id="user-name" class="ml-2 text-sm font-medium text-gray-700 hidden md:inline">Loading...</span>
+                        </button>
+                        <div id="user-menu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" id="profile-link">Your Profile</a>
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" id="settings-link">Settings</a>
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" id="logout-link">Sign out</a>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <nav class="flex border-b border-gray-200">
-                <button data-tab="dashboard" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Dashboard</button>
-                <button data-tab="request-leave" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Request Leave</button>
-                <button data-tab="calendar" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Calendar</button>
-                <button data-tab="employees" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">Employees</button>
-                <button data-tab="admin" id="admin-tab-btn" class="tab-btn py-2 px-4 font-medium text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 hidden">Admin</button>
-            </nav>
         </header>
 
-        <main>
-            <!-- Dashboard Tab -->
-            <div id="dashboard" class="tab-content active">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="font-medium text-gray-500">Remaining Leave Days</h3>
-                        <p class="text-3xl font-bold text-blue-600 mt-2" id="remaining-leave">15</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="font-medium text-gray-500">Pending Requests</h3>
-                        <p class="text-3xl font-bold text-yellow-600 mt-2" id="pending-count">0</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow">
-                        <h3 class="font-medium text-gray-500">Approved Requests</h3>
-                        <p class="text-3xl font-bold text-green-600 mt-2" id="approved-count">0</p>
-                    </div>
-                </div>
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Sidebar -->
+                <div class="w-full lg:w-1/4 mb-6 lg:mb-0">
+                    <nav class="bg-white rounded-lg shadow p-4">
+                        <ul class="space-y-2">
+                            <li>
+                                <button id="dashboard-link" class="w-full flex items-center p-2 text-base font-medium text-gray-900 rounded-lg hover:bg-gray-100 bg-blue-100">
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                                    </svg>
+                                    <span class="ml-3">Dashboard</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button id="leave-request-link" class="w-full flex items-center p-2 text-base font-medium text-gray-900 rounded-lg hover:bg-gray-100">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
+                                    <span class="ml-3">Request Leave</span>
+                                </button>
+                            </li>
+                            <li>
+                                <button id="leave-calendar-link" class="w-full flex items-center p-2 text-base font-medium text-gray-900 rounded-lg hover:bg-gray-100">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span class="ml-3">Leave Calendar</span>
+                                </button>
+                            </li>
+                            <li id="admin-employees-link-container" class="hidden">
+                                <button id="admin-employees-link" class="w-full flex items-center p-2 text-base font-medium text-gray-900 rounded-lg hover:bg-gray-100">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                    </svg>
+                                    <span class="ml-3">Employee Management</span>
+                                </button>
+                            </li>
+                            <li id="admin-leave-approval-link-container" class="hidden">
+                                <button id="admin-leave-approval-link" class="w-full flex items-center p-2 text-base font-medium text-gray-900 rounded-lg hover:bg-gray-100">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="ml-3">Leave Approvals</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
 
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="font-semibold text-gray-800">Your Leave Requests</h2>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="user-leave-requests" class="bg-white divide-y divide-gray-200">
-                                <!-- Dynamically populated -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Request Leave Tab -->
-            <div id="request-leave" class="tab-content">
-                <div class="bg-white rounded-lg shadow overflow-hidden p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Request New Leave</h2>
-                    <form id="leave-request-form">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-                                <select id="leave-type" class="w-full p-2 border rounded">
-                                    <option value="local-credits">Local Credits</option>
-                                    <option value="vacation">Vacation Leave</option>
-                                    <option value="mandatory">Mandatory/Forced Leave</option>
-                                    <option value="sick">Sick Leave</option>
-                                    <option value="maternity">Maternity Leave</option>
-                                    <option value="paternity">Paternity Leave</option>
-                                    <option value="special-privilege">Special Privilege Leave</option>
-                                    <option value="solo-parent">Solo Parent Leave</option>
-                                    <option value="study">Study Leave</option>
-                                    <option value="vawc">10-Day VAWC Leave</option>
-                                    <option value="rehabilitation">Rehabilitation Privilege</option>
-                                    <option value="special-women">Special Leave Benefits for Women</option>
-                                    <option value="calamity">Special Emergency (Calamity Leave)</option>
-                                    <option value="adoption">Adoption Leave</option>
-                                </select>
+                    <!-- Leave Balance Widget -->
+                    <div id="leave-balance-widget" class="bg-white rounded-lg shadow mt-4 p-4 hidden">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Your Leave Balance</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="leave-color bg-green-500"></span>
+                                    <span class="text-sm font-medium">Vacation Leave</span>
+                                </div>
+                                <span id="vacation-balance" class="text-sm font-medium">15 days</span>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                                <select id="leave-duration" class="w-full p-2 border rounded">
-                                    <option value="full">Full Day</option>
-                                    <option value="half-am">Half Day (AM)</option>
-                                    <option value="half-pm">Half Day (PM)</option>
-                                </select>
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="leave-color bg-blue-500"></span>
+                                    <span class="text-sm font-medium">Sick Leave</span>
+                                </div>
+                                <span id="sick-balance" class="text-sm font-medium">15 days</span>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                <input id="leave-start" type="date" class="w-full p-2 border rounded">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="leave-color bg-purple-500"></span>
+                                    <span class="text-sm font-medium">Mandatory Leave</span>
+                                </div>
+                                <span id="mandatory-balance" class="text-sm font-medium">5 days</span>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                                <input id="leave-end" type="date" class="w-full p-2 border rounded">
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                                <textarea id="leave-reason" rows="3" class="w-full p-2 border rounded" placeholder="Briefly explain the reason for leave"></textarea>
-                            </div>
-                        </div>
-                        <div class="mt-6 flex justify-end">
-                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Submit Request</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Calendar Tab -->
-            <div id="calendar" class="tab-content">
-                <div class="bg-white rounded-lg shadow overflow-hidden p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-semibold text-gray-800">Leave Calendar 2025</h2>
-                        <div class="flex items-center space-x-4">
-                            <select id="calendar-month" class="p-2 border rounded">
-                                <option value="0">January</option>
-                                <option value="1">February</option>
-                                <option value="2">March</option>
-                                <option value="3">April</option>
-                                <option value="4">May</option>
-                                <option value="5">June</option>
-                                <option value="6">July</option>
-                                <option value="7">August</option>
-                                <option value="8">September</option>
-                                <option value="9">October</option>
-                                <option value="10">November</option>
-                                <option value="11">December</option>
-                            </select>
-                            <select id="calendar-year" class="p-2 border rounded">
-                                <option>2025</option>
-                                <option>2024</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full" id="calendar-table">
-                            <thead>
-                                <tr>
-                                    <th class="p-2">Sun</th>
-                                    <th class="p-2">Mon</th>
-                                    <th class="p-2">Tue</th>
-                                    <th class="p-2">Wed</th>
-                                    <th class="p-2">Thu</th>
-                                    <th class="p-2">Fri</th>
-                                    <th class="p-2">Sat</th>
-                                </tr>
-                            </thead>
-                            <tbody id="calendar-body">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-6">
-                        <h3 class="font-medium mb-2">Leave Legend</h3>
-                        <div class="flex flex-wrap gap-4">
-                            <div class="flex items-center">
-                                <span class="leave-day bg-yellow-100 mr-2"></span>
-                                <span>Pending</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="leave-day bg-green-100 mr-2"></span>
-                                <span>Approved</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="leave-day bg-red-100 mr-2"></span>
-                                <span>Rejected</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="leave-day bg-blue-100 mr-2"></span>
-                                <span>Your Leave</span>
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="leave-color bg-yellow-500"></span>
+                                    <span class="text-sm font-medium">Special Privilege</span>
+                                </div>
+                                <span id="special-balance" class="text-sm font-medium">3 days</span>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Employees Tab -->
-            <div id="employees" class="tab-content">
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                        <h2 class="font-semibold text-gray-800">Employees (2025)</h2>
-                        <div class="relative">
-                            <input type="text" id="employee-search" placeholder="Search employees..." class="p-2 pl-8 border rounded w-64">
-                            <i class="fas fa-search absolute left-2 top-3 text-gray-400"></i>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Days Left</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="employee-list" class="bg-white divide-y divide-gray-200">
-                                <!-- Dynamic content -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Admin Tab -->
-            <div id="admin" class="tab-content">
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="font-semibold text-gray-800">Admin Dashboard</h2>
-                    </div>
-                    <div class="p-6">
-                        <div class="mb-8">
-                            <h3 class="font-medium text-lg mb-4">Pending Leave Requests</h3>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="admin-pending-requests" class="bg-white divide-y divide-gray-200">
-                                        <!-- Dynamic content -->
-                                    </tbody>
-                                </table>
+                <!-- Main Content Area -->
+                <div class="w-full lg:w-3/4">
+                    <!-- Dashboard Panel -->
+                    <div id="dashboard-panel">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900">Welcome back, <span id="greeting-name">User</span>!</h2>
+                                <p class="text-gray-600">Here's what's happening with your leave requests.</p>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-gray-50 p-4 rounded">
-                                <h3 class="font-medium text-lg mb-4">Add New Employee</h3>
-                                <form id="add-employee-form">
-                                    <div class="space-y-3">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                            <input type="text" id="new-emp-name" class="w-full p-2 border rounded" required>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                <div class="bg-blue-50 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
                                         </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                            <input type="email" id="new-emp-email" class="w-full p-2 border rounded" required>
+                                        <div class="ml-4">
+                                            <h3 id="approved-leaves-count" class="text-xl font-bold">0</h3>
+                                            <p class="text-sm text-gray-600">Approved leaves</p>
                                         </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                                            <select id="new-emp-dept" class="w-full p-2 border rounded">
-                                                <option value="Teaching">Teaching</option>
-                                                <option value="Non-Teaching">Non-Teaching</option>
-                                                <option value="Administration">Administration</option>
-                                                <option value="Support">Support</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Initial Leave Balance</label>
-                                            <input type="number" id="new-emp-leave" class="w-full p-2 border rounded" value="15" min="0">
-                                        </div>
-                                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Add Employee</button>
                                     </div>
-                                </form>
-                            </div>
-                            <div>
-                                <h3 class="font-medium text-lg mb-4">System Settings</h3>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Default Annual Leave Days</label>
-                                        <input type="number" id="default-leave-days" class="w-full p-2 border rounded" value="15">
+                                </div>
+                                <div class="bg-yellow-50 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="ml-4">
+                                            <h3 id="pending-leaves-count" class="text-xl font-bold">0</h3>
+                                            <p class="text-sm text-gray-600">Pending requests</p>
+                                        </div>
                                     </div>
-                                    <button id="save-settings" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Save Settings</button>
+                                </div>
+                                <div class="bg-red-50 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-red-100 text-red-600">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="ml-4">
+                                            <h3 id="rejected-leaves-count" class="text-xl font-bold">0</h3>
+                                            <p class="text-sm text-gray-600">Rejected requests</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Leave Requests</h3>
+                                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-requests-body" class="bg-white divide-y divide-gray-200">
+                                            <!-- Will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Request Leave Panel -->
+                    <div id="request-leave-panel" class="hidden bg-white rounded-lg shadow p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Request Leave</h2>
+                        <form id="leave-request-form">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="leave-type" class="block text-sm font-medium text-gray-700">Leave Type</label>
+                                    <select id="leave-type" name="leave-type" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                        <option value="">Select Leave Type</option>
+                                        <option value="Local Credits">Local Credits</option>
+                                        <option value="Vacation Leave">Vacation Leave</option>
+                                        <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
+                                        <option value="Sick Leave">Sick Leave</option>
+                                        <option value="Maternity Leave">Maternity Leave</option>
+                                        <option value="Paternity Leave">Paternity Leave</option>
+                                        <option value="Special Privilege Leave">Special Privilege Leave</option>
+                                        <option value="Solo Parent Leave">Solo Parent Leave</option>
+                                        <option value="Study Leave">Study Leave</option>
+                                        <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
+                                        <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
+                                        <option value="Special Leave Benefits for Women">Special Leave Benefits for Women</option>
+                                        <option value="Special Emergency (Calamity) Leave">Special Emergency (Calamity) Leave</option>
+                                        <option value="Adoption Leave">Adoption Leave</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="start-date" class="block text-sm font-medium text-gray-700">Start Date</label>
+                                    <input type="date" id="start-date" name="start-date" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                                <div>
+                                    <label for="end-date" class="block text-sm font-medium text-gray-700">End Date</label>
+                                    <input type="date" id="end-date" name="end-date" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                                <div>
+                                    <label for="duration" class="block text-sm font-medium text-gray-700">Duration (days)</label>
+                                    <input type="number" id="duration" name="duration" min="0.5" max="30" step="0.5" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <label for="reason" class="block text-sm font-medium text-gray-700">Reason</label>
+                                <textarea id="reason" name="reason" rows="3" required class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <label for="supporting-docs" class="block text-sm font-medium text-gray-700">Supporting Documents (if any)</label>
+                                <input type="file" id="supporting-docs" name="supporting-docs" multiple class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            </div>
+                            
+                            <div class="flex justify-end mt-6">
+                                <button type="button" id="cancel-request" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Cancel</button>
+                                <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Submit Request</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Leave Calendar Panel -->
+                    <div id="leave-calendar-panel" class="hidden bg-white rounded-lg shadow p-6">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Leave Calendar</h2>
+                        <div id="calendar" class="bg-white"></div>
+                    </div>
+
+                    <!-- Admin Employee Management Panel -->
+                    <div id="admin-employees-panel" class="hidden bg-white rounded-lg shadow p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900">Employee Management</h2>
+                            <button id="add-employee-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Add Employee
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <table id="employees-table" class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <!-- Will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Add/Edit Employee Modal -->
+                    <div id="employee-modal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+                        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            </div>
+                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <h3 id="modal-title" class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Employee</h3>
+                                    <form id="employee-form">
+                                        <input type="hidden" id="employee-id">
+                                        <div class="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                                                <input type="text" name="modal-name" id="modal-name" required class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                            </div>
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-email" class="block text-sm font-medium text-gray-700">Email</label>
+                                                <input type="email" name="modal-email" id="modal-email" required class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                            </div>
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-employee-id" class="block text-sm font-medium text-gray-700">Employee ID</label>
+                                                <input type="text" name="modal-employee-id" id="modal-employee-id" required class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                            </div>
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-department" class="block text-sm font-medium text-gray-700">Department</label>
+                                                <select id="modal-department" name="modal-department" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    <option value="">Select Department</option>
+                                                    <option value="Teaching">Teaching</option>
+                                                    <option value="Non-Teaching">Non-Teaching</option>
+                                                    <option value="Admin">Admin</option>
+                                                    <option value="HR">Human Resources</option>
+                                                    <option value="Finance">Finance</option>
+                                                    <option value="IT">Information Technology</option>
+                                                </select>
+                                            </div>
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-role" class="block text-sm font-medium text-gray-700">Role</label>
+                                                <select id="modal-role" name="modal-role" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                                    <option value="Employee">Employee</option>
+                                                    <option value="Admin">Admin</option>
+                                                </select>
+                                            </div>
+                                            <div class="sm:col-span-3">
+                                                <label for="modal-password" class="block text-sm font-medium text-gray-700">Password</label>
+                                                <input type="password" name="modal-password" id="modal-password" class="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                                <p class="mt-1 text-sm text-gray-500">Leave blank to keep existing password</p>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                    <button type="button" id="save-employee-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">Save</button>
+                                    <button type="button" id="cancel-employee-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Leave Approvals Panel -->
+                    <div id="admin-leave-approval-panel" class="hidden bg-white rounded-lg shadow p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-900">Leave Approvals</h2>
+                            <div class="flex space-x-2">
+                                <button id="filter-pending-btn" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Pending
+                                </button>
+                                <button id="filter-approved-btn" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                    Approved
+                                </button>
+                                <button id="filter-rejected-btn" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    Rejected
+                                </button>
+                                <button id="filter-all-btn" class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    All
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <table id="leave-approvals-table" class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <!-- Will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- View Leave Request Modal -->
+                    <div id="leave-details-modal" class="fixed z-10 inset-0 overflow-y-auto hidden">
+                        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            </div>
+                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <h3 id="leave-details-title" class="text-lg leading-6 font-medium text-gray-900 mb-4">Leave Request Details</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Employee Name</label>
+                                            <div id="employee-name" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Employee ID</label>
+                                            <div id="employee-id" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Department</label>
+                                            <div id="employee-department" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Leave Type</label>
+                                            <div id="leave-details-type" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                                            <div id="leave-details-start" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">End Date</label>
+                                            <div id="leave-details-end" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Duration</label>
+                                            <div id="leave-details-duration" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Status</label>
+                                            <div id="leave-details-status" class="mt-1 text-sm text-gray-900 p-2 bg-gray-50 rounded">Loading...</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <label class="block text-sm font-medium text-gray-700">Reason</label>
+                                        <div id="leave-details-reason" class="mt-1 p-3 bg-gray-50 rounded text-sm text-gray-900">Loading...</div>
+                                    </div>
+                                    <div id="leave-details-docs-container" class="mt-4 hidden">
+                                        <label class="block text-sm font-medium text-gray-700">Supporting Documents</label>
+                                        <div id="leave-details-docs" class="mt-1 flex flex-wrap gap-2">
+                                            <!-- Documents will be displayed here -->
+                                        </div>
+                                    </div>
+                                    <div id="reject-reason-container" class="mt-4 hidden">
+                                        <label class="block text-sm font-medium text-gray-700">Rejection Reason</label>
+                                        <div id="reject-reason" class="mt-1 p-3 bg-gray-50 rounded text-sm text-gray-900">Loading...</div>
+                                    </div>
+                                </div>
+                                <div id="leave-details-actions" class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                    <!-- Buttons will be added dynamically based on status -->
+                                    <div class="flex space-x-2">
+                                        <button type="button" id="close-details-btn" class="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">Close</button>
+                                        <button type="button" id="approve-leave-btn" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm hidden">Approve</button>
+                                        <button type="button" id="reject-leave-btn" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm hidden">Reject</button>
+                                    </div>
+                                </div>
+                                <div id="rejection-form-container" class="hidden bg-white px-4 pb-4 pt-2">
+                                    <div class="mt-4">
+                                        <label for="rejection-reason-input" class="block text-sm font-medium text-gray-700">Rejection Reason</label>
+                                        <textarea id="rejection-reason-input" rows="3" class="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                                    </div>
+                                    <div class="mt-2 flex justify-end space-x-2">
+                                        <button type="button" id="cancel-reject-btn" class="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">Cancel</button>
+                                        <button type="button" id="confirm-reject-btn" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">Confirm Rejection</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -363,755 +627,707 @@
     </div>
 
     <script>
-        // Data Models
-        let users = JSON.parse(localStorage.getItem('leaveSystemUsers')) || [];
-        let leaveRequests = JSON.parse(localStorage.getItem('leaveSystemRequests')) || [];
-        let settings = JSON.parse(localStorage.getItem('leaveSystemSettings')) || { defaultLeaveDays: 15 };
-        let currentUser = null;
-
-        // DOM Elements
-        const authPage = document.getElementById('auth-page');
-        const app = document.getElementById('app');
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        const loginBtn = document.getElementById('login-btn');
-        const signupBtn = document.getElementById('signup-btn');
-        const loginTab = document.getElementById('login-tab');
-        const signupTab = document.getElementById('signup-tab');
-        const logoutBtn = document.getElementById('logout-btn');
-        const currentUserSpan = document.getElementById('current-user');
-        const adminTabBtn = document.getElementById('admin-tab-btn');
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            setupEventListeners();
-            loadSampleDataIfEmpty();
-        });
-
-        // Check if user is logged in
-        function checkAuth() {
-            const userId = localStorage.getItem('currentUserId');
-            if (userId) {
-                currentUser = users.find(u => u.id === userId);
-                if (currentUser) {
-                    authPage.classList.add('hidden');
-                    app.classList.remove('hidden');
-                    updateUIForUser();
+        // Data Storage
+        const users = [
+            {
+                id: 'e1',
+                email: 'admin@example.com',
+                password: 'admin123', // In a real app, this would be hashed
+                name: 'Administrator',
+                employeeId: 'ADMIN001',
+                department: 'Admin',
+                role: 'Admin',
+                avatar: 'https://placehold.co/100/2563eb/white?text=AD',
+                leaveBalances: {
+                    vacation: 15,
+                    sick: 15,
+                    mandatory: 5,
+                    special: 3
+                }
+            },
+            {
+                id: 'e2',
+                email: 'teacher1@example.com',
+                password: 'teacher1', // In a real app, this would be hashed
+                name: 'John Smith',
+                employeeId: 'T2025001',
+                department: 'Teaching',
+                role: 'Employee',
+                avatar: 'https://placehold.co/100/2563eb/white?text=JS',
+                leaveBalances: {
+                    vacation: 15,
+                    sick: 15,
+                    mandatory: 5,
+                    special: 3
+                }
+            },
+            {
+                id: 'e3',
+                email: 'teacher2@example.com',
+                password: 'teacher2', // In a real app, this would be hashed
+                name: 'Jane Doe',
+                employeeId: 'T2025002',
+                department: 'Teaching',
+                role: 'Employee',
+                avatar: 'https://placehold.co/100/2563eb/white?text=JD',
+                leaveBalances: {
+                    vacation: 15,
+                    sick: 15,
+                    mandatory: 5,
+                    special: 3
+                }
+            },
+            {
+                id: 'e4',
+                email: 'staff1@example.com',
+                password: 'staff1', // In a real app, this would be hashed
+                name: 'Robert Johnson',
+                employeeId: 'NT2025001',
+                department: 'Non-Teaching',
+                role: 'Employee',
+                avatar: 'https://placehold.co/100/2563eb/white?text=RJ',
+                leaveBalances: {
+                    vacation: 15,
+                    sick: 15,
+                    mandatory: 5,
+                    special: 3
                 }
             }
-        }
+        ];
 
-        // Set up event listeners
+        // Sample leave requests data
+        let leaveRequests = [
+            {
+                id: 'lr1',
+                employeeId: 'T2025001',
+                type: 'Vacation Leave',
+                startDate: '2025-04-15',
+                endDate: '2025-04-17',
+                duration: 3,
+                reason: 'Family vacation to the beach',
+                status: 'Approved',
+                submittedDate: '2025-04-01',
+                approvedDate: '2025-04-03',
+                approvedBy: 'ADMIN001'
+            },
+            {
+                id: 'lr2',
+                employeeId: 'T2025002',
+                type: 'Sick Leave',
+                startDate: '2025-05-10',
+                endDate: '2025-05-10',
+                duration: 1,
+                reason: 'Doctor appointment',
+                status: 'Pending',
+                submittedDate: '2025-05-08'
+            },
+            {
+                id: 'lr3',
+                employeeId: 'NT2025001',
+                type: 'Special Privilege Leave',
+                startDate: '2025-06-01',
+                endDate: '2025-06-03',
+                duration: 3,
+                reason: 'Attending a wedding',
+                status: 'Rejected',
+                submittedDate: '2025-05-20',
+                rejectedDate: '2025-05-21',
+                rejectedBy: 'ADMIN001',
+                rejectReason: 'Insufficient documentation for special leave'
+            },
+            {
+                id: 'lr4',
+                employeeId: 'T2025001',
+                type: 'Maternity Leave',
+                startDate: '2025-07-01',
+                endDate: '2025-09-30',
+                duration: 60,
+                reason: 'Maternity leave for childbirth',
+                status: 'Approved',
+                submittedDate: '2025-06-15',
+                approvedDate: '2025-06-17',
+                approvedBy: 'ADMIN001'
+            },
+            {
+                id: 'lr5',
+                employeeId: 'NT2025001',
+                type: 'Mandatory/Forced Leave',
+                startDate: '2025-05-15',
+                endDate: '2025-05-19',
+                duration: 5,
+                reason: 'Mandatory leave as per policy',
+                status: 'Pending',
+                submittedDate: '2025-04-25'
+            }
+        ];
+
+        // DOM Elements
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const loginTab = document.getElementById('login-tab');
+        const signupTab = document.getElementById('signup-tab');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // State
+        let currentUser = null;
+        let currentView = 'dashboard';
+        let employeesData = [...users.filter(u => u.role !== 'Admin')];
+        let currentLeaveStatusFilter = 'Pending';
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            checkRememberedUser();
+        });
+
+        // Setup Event Listeners
         function setupEventListeners() {
-            // Auth
-            loginTab.addEventListener('click', () => toggleAuthForms('login'));
-            signupTab.addEventListener('click', () => toggleAuthForms('signup'));
-            loginBtn.addEventListener('click', handleLogin);
-            signupBtn.addEventListener('click', handleSignup);
-            logoutBtn.addEventListener('click', handleLogout);
-
-            // Tabs
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const tabId = btn.getAttribute('data-tab');
-                    switchTab(tabId);
-                });
-            });
-
-            // Leave request
-            document.getElementById('leave-request-form').addEventListener('submit', handleLeaveRequest);
-
-            // Calendar
-            document.getElementById('calendar-month').addEventListener('change', renderCalendar);
-            document.getElementById('calendar-year').addEventListener('change', renderCalendar);
-
-            // Admin
-            document.getElementById('add-employee-form').addEventListener('submit', handleAddEmployee);
-            document.getElementById('save-settings').addEventListener('click', saveSettings);
-
-            // Search
-            document.getElementById('employee-search').addEventListener('input', filterEmployees);
-        }
-
-        // Toggle between login/signup forms
-        function toggleAuthForms(form) {
-            if (form === 'login') {
-                loginTab.classList.add('border-blue-500');
+            // Auth tabs
+            loginTab.addEventListener('click', () => {
+                loginTab.classList.add('border-blue-600', 'text-blue-600');
                 loginTab.classList.remove('text-gray-500');
-                signupTab.classList.remove('border-blue-500');
+                signupTab.classList.remove('border-blue-600', 'text-blue-600');
                 signupTab.classList.add('text-gray-500');
                 loginForm.classList.remove('hidden');
                 signupForm.classList.add('hidden');
-            } else {
-                signupTab.classList.add('border-blue-500');
+            });
+
+            signupTab.addEventListener('click', () => {
+                signupTab.classList.add('border-blue-600', 'text-blue-600');
                 signupTab.classList.remove('text-gray-500');
-                loginTab.classList.remove('border-blue-500');
+                loginTab.classList.remove('border-blue-600', 'text-blue-600');
                 loginTab.classList.add('text-gray-500');
                 signupForm.classList.remove('hidden');
                 loginForm.classList.add('hidden');
+            });
+
+            // Login form
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                const rememberMe = document.getElementById('remember-me').checked;
+                loginUser(email, password, rememberMe);
+            });
+
+            // Signup form
+            signupForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('signup-email').value;
+                const password = document.getElementById('signup-password').value;
+                const confirmPassword = document.getElementById('signup-confirm-password').value;
+                const name = document.getElementById('signup-name').value;
+                const employeeId = document.getElementById('signup-employee-id').value;
+                const department = document.getElementById('signup-department').value;
+
+                if (password !== confirmPassword) {
+                    alert('Passwords do not match!');
+                    return;
+                }
+
+                // Check if email or employee ID already exists
+                if (users.some(u => u.email === email)) {
+                    alert('Email already exists!');
+                    return;
+                }
+
+                if (users.some(u => u.employeeId === employeeId)) {
+                    alert('Employee ID already exists!');
+                    return;
+                }
+
+                // Add new user
+                const newUser = {
+                    id: 'e' + (users.length + 1),
+                    email,
+                    password, // In a real app, this would be hashed
+                    name,
+                    employeeId,
+                    department,
+                    role: 'Employee',
+                    avatar: `https://placehold.co/100/2563eb/white?text=${name.charAt(0)}${name.split(' ')[1] ? name.split(' ')[1].charAt(0) : ''}`,
+                    leaveBalances: {
+                        vacation: 15,
+                        sick: 15,
+                        mandatory: 5,
+                        special: 3
+                    }
+                };
+
+                users.push(newUser);
+                alert('Account created successfully! You can now login.');
+                loginTab.click();
+                document.getElementById('login-email').value = email;
+                document.getElementById('login-password').value = password;
+                document.getElementById('signup-form').reset();
+            });
+
+            // Logout
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logoutUser();
+            });
+
+            // Navigation links
+            document.getElementById('dashboard-link').addEventListener('click', () => {
+                switchView('dashboard');
+            });
+
+            document.getElementById('leave-request-link').addEventListener('click', () => {
+                switchView('request-leave');
+            });
+
+            document.getElementById('leave-calendar-link').addEventListener('click', () => {
+                switchView('leave-calendar');
+            });
+
+            document.getElementById('admin-employees-link').addEventListener('click', () => {
+                switchView('admin-employees');
+            });
+
+            document.getElementById('admin-leave-approval-link').addEventListener('click', () => {
+                switchView('admin-leave-approval');
+            });
+
+            // Cancel leave request button
+            document.getElementById('cancel-request').addEventListener('click', () => {
+                switchView('dashboard');
+                document.getElementById('leave-request-form').reset();
+            });
+
+            // Leave request form
+            document.getElementById('leave-request-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                submitLeaveRequest();
+            });
+
+            // Start and end date change handlers
+            document.getElementById('start-date').addEventListener('change', calculateDuration);
+            document.getElementById('end-date').addEventListener('change', calculateDuration);
+
+            // Employee management
+            document.getElementById('add-employee-btn').addEventListener('click', openAddEmployeeModal);
+            document.getElementById('cancel-employee-btn').addEventListener('click', closeEmployeeModal);
+            document.getElementById('save-employee-btn').addEventListener('click', saveEmployee);
+
+            // Leave approval filter buttons
+            document.getElementById('filter-pending-btn').addEventListener('click', () => {
+                currentLeaveStatusFilter = 'Pending';
+                renderLeaveApprovalsTable();
+            });
+            document.getElementById('filter-approved-btn').addEventListener('click', () => {
+                currentLeaveStatusFilter = 'Approved';
+                renderLeaveApprovalsTable();
+            });
+            document.getElementById('filter-rejected-btn').addEventListener('click', () => {
+                currentLeaveStatusFilter = 'Rejected';
+                renderLeaveApprovalsTable();
+            });
+            document.getElementById('filter-all-btn').addEventListener('click', () => {
+                currentLeaveStatusFilter = 'All';
+                renderLeaveApprovalsTable();
+            });
+
+            // User menu
+            document.getElementById('user-menu-btn').addEventListener('click', toggleUserMenu);
+        }
+
+        // Authentication Functions
+        function checkRememberedUser() {
+            const rememberedEmail = localStorage.getItem('rememberedEmail');
+            const rememberedPassword = localStorage.getItem('rememberedPassword');
+            
+            if (rememberedEmail && rememberedPassword) {
+                document.getElementById('login-email').value = rememberedEmail;
+                document.getElementById('login-password').value = rememberedPassword;
+                document.getElementById('remember-me').checked = true;
             }
         }
 
-        // Handle login
-        function handleLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
+        function loginUser(email, password, rememberMe) {
+            showLoading();
             
-            const user = users.find(u => u.email === email && u.password === password);
-            const errorElement = document.getElementById('login-error');
-            
-            if (user) {
-                errorElement.classList.add('hidden');
-                currentUser = user;
-                localStorage.setItem('currentUserId', user.id);
-                authPage.classList.add('hidden');
-                app.classList.remove('hidden');
-                updateUIForUser();
-            } else {
-                errorElement.classList.remove('hidden');
-            }
-        }
-
-        // Handle signup
-        function handleSignup(e) {
-            e.preventDefault();
-            const name = document.getElementById('signup-name').value;
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            const role = document.getElementById('signup-role').value;
-            const department = document.getElementById('signup-department').value;
-            
-            const errorElement = document.getElementById('signup-error');
-            const successElement = document.getElementById('signup-success');
-            
-            if (!name || !email || !password || !department) {
-                errorElement.classList.remove('hidden');
-                successElement.classList.add('hidden');
-                return;
-            }
-            
-            if (users.some(u => u.email === email)) {
-                errorElement.textContent = "Email already registered.";
-                errorElement.classList.remove('hidden');
-                successElement.classList.add('hidden');
-                return;
-            }
-            
-            const newUser = {
-                id: generateId(),
-                name,
-                email,
-                password,
-                role,
-                department,
-                leaveBalance: settings.defaultLeaveDays || 15,
-                remainingLeave: settings.defaultLeaveDays || 15
-            };
-            
-            users.push(newUser);
-            saveUsers();
-            
-            errorElement.classList.add('hidden');
-            successElement.classList.remove('hidden');
-            
-            // Clear form
-            document.getElementById('signup-name').value = '';
-            document.getElementById('signup-email').value = '';
-            document.getElementById('signup-password').value = '';
-            document.getElementById('signup-department').value = '';
-            
-            // Switch to login after 1.5s
+            // Simulate network delay
             setTimeout(() => {
-                successElement.classList.add('hidden');
-                toggleAuthForms('login');
+                const user = users.find(u => u.email === email && u.password === password);
+                
+                if (user) {
+                    currentUser = user;
+                    
+                    // Remember user if checkbox is checked
+                    if (rememberMe) {
+                        localStorage.setItem('rememberedEmail', email);
+                        localStorage.setItem('rememberedPassword', password);
+                    } else {
+                        localStorage.removeItem('rememberedEmail');
+                        localStorage.removeItem('rememberedPassword');
+                    }
+                    
+                    // Show main app
+                    authContainer.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    
+                    // Initialize the app for the logged in user
+                    initializeApp();
+                    
+                    // Check if user is admin
+                    if (user.role === 'Admin') {
+                        document.getElementById('admin-employees-link-container').classList.remove('hidden');
+                        document.getElementById('admin-leave-approval-link-container').classList.remove('hidden');
+                    } else {
+                        document.getElementById('admin-employees-link-container').classList.add('hidden');
+                        document.getElementById('admin-leave-approval-link-container').classList.add('hidden');
+                    }
+                } else {
+                    alert('Invalid email or password!');
+                }
+                
+                hideLoading();
+            }, 1000);
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            appContainer.classList.add('hidden');
+            authContainer.classList.remove('hidden');
+            document.getElementById('login-form').reset();
+            document.getElementById('login-email').focus();
+        }
+
+        // App Initialization
+        function initializeApp() {
+            // Set user info in header
+            document.getElementById('user-name').textContent = currentUser.name;
+            document.getElementById('user-name').classList.remove('hidden');
+            document.getElementById('user-avatar').src = currentUser.avatar || 'https://placehold.co/100/2563eb/white?text=ME';
+            document.getElementById('greeting-name').textContent = currentUser.name.split(' ')[0];
+            
+            // Update leave balance widget
+            if (currentUser.role !== 'Admin') {
+                document.getElementById('leave-balance-widget').classList.remove('hidden');
+                document.getElementById('vacation-balance').textContent = currentUser.leaveBalances.vacation + ' days';
+                document.getElementById('sick-balance').textContent = currentUser.leaveBalances.sick + ' days';
+                document.getElementById('mandatory-balance').textContent = currentUser.leaveBalances.mandatory + ' days';
+                document.getElementById('special-balance').textContent = currentUser.leaveBalances.special + ' days';
+            } else {
+                document.getElementById('leave-balance-widget').classList.add('hidden');
+            }
+            
+            // Load initial data
+            renderDashboard();
+            renderLeaveRequestForm();
+            initCalendar();
+            renderEmployeesTable();
+            renderLeaveApprovalsTable();
+            
+            // Set dashboard as default view
+            switchView('dashboard');
+        }
+
+        // View Switching
+        function switchView(view) {
+            currentView = view;
+            
+            // Update active nav button
+            document.querySelectorAll('[id$="-link"]').forEach(btn => {
+                btn.classList.remove('bg-blue-100');
+                btn.querySelector('svg').classList.remove('text-blue-600');
+                btn.querySelector('svg').classList.add('text-gray-500');
+            });
+            
+            document.getElementById(`${view}-link`).classList.add('bg-blue-100');
+            document.getElementById(`${view}-link`).querySelector('svg').classList.add('text-blue-600');
+            document.getElementById(`${view}-link`).querySelector('svg').classList.remove('text-gray-500');
+            
+            // Hide all panels and show the selected one
+            document.getElementById('dashboard-panel').classList.add('hidden');
+            document.getElementById('request-leave-panel').classList.add('hidden');
+            document.getElementById('leave-calendar-panel').classList.add('hidden');
+            document.getElementById('admin-employees-panel').classList.add('hidden');
+            document.getElementById('admin-leave-approval-panel').classList.add('hidden');
+            
+            document.getElementById(`${view}-panel`).classList.remove('hidden');
+            
+            // Special handling for calendar
+            if (view === 'leave-calendar') {
+                setTimeout(() => {
+                    const calendarEl = document.getElementById('calendar');
+                    if (calendarEl && window.calendar) {
+                        window.calendar.render();
+                    }
+                }, 10);
+            }
+        }
+
+        // Dashboard Functions
+        function renderDashboard() {
+            if (!currentUser) return;
+            
+            const userLeaves = leaveRequests.filter(lr => lr.employeeId === currentUser.employeeId);
+            const approvedLeaves = userLeaves.filter(l => l.status === 'Approved').length;
+            const pendingLeaves = userLeaves.filter(l => l.status === 'Pending').length;
+            const rejectedLeaves = userLeaves.filter(l => l.status === 'Rejected').length;
+            
+            // Update counters
+            document.getElementById('approved-leaves-count').textContent = approvedLeaves;
+            document.getElementById('pending-leaves-count').textContent = pendingLeaves;
+            document.getElementById('rejected-leaves-count').textContent = rejectedLeaves;
+            
+            // Update recent requests table
+            const tbody = document.getElementById('recent-requests-body');
+            tbody.innerHTML = '';
+            
+            // Get 5 most recent requests
+            const recentRequests = [...userLeaves]
+                .sort((a, b) => new Date(b.submittedDate) - new Date(a.submittedDate))
+                .slice(0, 5);
+            
+            recentRequests.forEach(request => {
+                const row = document.createElement('tr');
+                
+                // Status badge
+                let statusClass = '';
+                if (request.status === 'Approved') {
+                    statusClass = 'bg-green-100 text-green-800';
+                } else if (request.status === 'Pending') {
+                    statusClass = 'bg-yellow-100 text-yellow-800';
+                } else {
+                    statusClass = 'bg-red-100 text-red-800';
+                }
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${request.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(request.startDate)} to ${formatDate(request.endDate)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-xs">${request.reason}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                            ${request.status}
+                        </span>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Leave Request Functions
+        function renderLeaveRequestForm() {
+            // Set min date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('start-date').min = today;
+            document.getElementById('end-date').min = today;
+            
+            // Reset form
+            document.getElementById('leave-request-form').reset();
+        }
+
+        function calculateDuration() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                
+                if (start > end) {
+                    document.getElementById('end-date').value = startDate;
+                    return calculateDuration();
+                }
+                
+                // Calculate difference in days
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+                
+                document.getElementById('duration').value = diffDays;
+            }
+        }
+
+        function submitLeaveRequest() {
+            if (!currentUser) return;
+            
+            const type = document.getElementById('leave-type').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const duration = document.getElementById('duration').value;
+            const reason = document.getElementById('reason').value;
+            const files = document.getElementById('supporting-docs').files;
+            
+            if (!type || !startDate || !endDate || !duration || !reason) {
+                alert('Please fill all required fields!');
+                return;
+            }
+            
+            showLoading();
+            
+            // Simulate form submission
+            setTimeout(() => {
+                const newRequest = {
+                    id: 'lr' + (leaveRequests.length + 1),
+                    employeeId: currentUser.employeeId,
+                    type,
+                    startDate,
+                    endDate,
+                    duration: parseFloat(duration),
+                    reason,
+                    status: 'Pending',
+                    submittedDate: new Date().toISOString().split('T')[0]
+                };
+                
+                leaveRequests.push(newRequest);
+                
+                // If admin is submitting, auto-approve
+                if (currentUser.role === 'Admin') {
+                    newRequest.status = 'Approved';
+                    newRequest.approvedDate = new Date().toISOString().split('T')[0];
+                    newRequest.approvedBy = currentUser.employeeId;
+                }
+                
+                // Handle file uploads (in a real app, this would upload to a server)
+                if (files.length > 0) {
+                    newRequest.documents = Array.from(files).map(file => ({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size
+                    }));
+                }
+                
+                alert('Leave request submitted successfully!');
+                document.getElementById('leave-request-form').reset();
+                
+                // Update dashboard and calendar
+                renderDashboard();
+                initCalendar();
+                
+                if (currentUser.role === 'Admin') {
+                    renderLeaveApprovalsTable();
+                }
+                
+                switchView('dashboard');
+                hideLoading();
             }, 1500);
         }
 
-        // Handle logout
-        function handleLogout() {
-            currentUser = null;
-            localStorage.removeItem('currentUserId');
-            authPage.classList.remove('hidden');
-            app.classList.add('hidden');
-        }
-
-        // Update UI based on user role
-        function updateUIForUser() {
-            currentUserSpan.textContent = currentUser.name;
+        // Calendar Functions
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
             
-            // Show admin tab if admin
-            if (currentUser.role === 'admin') {
-                adminTabBtn.classList.remove('hidden');
-            } else {
-                adminTabBtn.classList.add('hidden');
+            if (!calendarEl) return;
+            
+            // Destroy existing calendar if it exists
+            if (window.calendar) {
+                window.calendar.destroy();
             }
             
-            // Update dashboard
-            document.getElementById('remaining-leave').textContent = currentUser.remainingLeave;
+            // Format events for calendar
+            const events = leaveRequests
+                .filter(lr => lr.status === 'Approved')
+                .map(lr => {
+                    const user = users.find(u => u.employeeId === lr.employeeId);
+                    return {
+                        title: `${user ? user.name : 'Unknown'} (${lr.type})`,
+                        start: lr.startDate,
+                        end: lr.endDate,
+                        allDay: true,
+                        backgroundColor: getLeaveColor(lr.type),
+                        borderColor: getLeaveColor(lr.type),
+                        textColor: '#ffffff'
+                    };
+                });
             
-            // Load user's leave requests
-            renderUserLeaveRequests();
-            
-            // Load pending count for admin
-            if (currentUser.role === 'admin') {
-                renderPendingRequests();
-            }
-            
-            // Load employee list
-            renderEmployeeList();
-            
-            // Load calendar
-            renderCalendar();
-        }
-
-        // Switch between tabs
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
+            window.calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events,
+                eventDisplay: 'block',
+                height: 'auto',
+                nowIndicator: true,
+                editable: false,
+                selectable: false,
+                selectMirror: true,
+                dayMaxEvents: true
             });
-            document.getElementById(tabId).classList.add('active');
             
-            // Update tab button styling
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-blue-600', 'text-blue-600');
-                btn.classList.add('text-gray-500');
-            });
-            document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('border-blue-600', 'text-blue-600');
-            document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.remove('text-gray-500');
+            window.calendar.render();
         }
 
-        // Handle leave request submission
-        function handleLeaveRequest(e) {
-            e.preventDefault();
-            
-            const type = document.getElementById('leave-type').value;
-            const duration = document.getElementById('leave-duration').value;
-            const startDate = document.getElementById('leave-start').value;
-            const endDate = document.getElementById('leave-end').value;
-            const reason = document.getElementById('leave-reason').value;
-            
-            if (!startDate || !endDate || !reason) {
-                alert('Please fill all required fields');
-                return;
-            }
-            
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            
-            if (start > end) {
-                alert('End date must be after start date');
-                return;
-            }
-            
-            // Calculate days difference (including start/end dates)
-            const timeDiff = end - start;
-            const daysDiff = (timeDiff / (1000 * 60 * 60 * 24)) + 1;
-            
-            // For half days, count as 0.5
-            const leaveDays = duration === 'full' ? daysDiff : daysDiff * 0.5;
-            
-            // Check if user has enough leave balance
-            if (leaveDays > currentUser.remainingLeave) {
-                alert('You do not have enough leave days remaining');
-                return;
-            }
-            
-            const newRequest = {
-                id: generateId(),
-                userId: currentUser.id,
-                userName: currentUser.name,
-                type,
-                duration,
-                startDate,
-                endDate,
-                reason,
-                days: leaveDays,
-                status: 'pending',
-                createdAt: new Date().toISOString()
+        function getLeaveColor(leaveType) {
+            const colorMap = {
+                'Local Credits': '#9C27B0',
+                'Vacation Leave': '#4CAF50',
+                'Mandatory/Forced Leave': '#2196F3',
+                'Sick Leave': '#FF9800',
+                'Maternity Leave': '#E91E63',
+                'Paternity Leave': '#00BCD4',
+                'Special Privilege Leave': '#8BC34A',
+                'Solo Parent Leave': '#795548',
+                'Study Leave': '#607D8B',
+                '10-Day VAWC Leave': '#F44336',
+                'Rehabilitation Privilege': '#3F51B5',
+                'Special Leave Benefits for Women': '#CDDC39',
+                'Special Emergency (Calamity) Leave': '#FF5722',
+                'Adoption Leave': '#009688'
             };
             
-            leaveRequests.push(newRequest);
-            saveLeaveRequests();
-            
-            // Update UI
-            renderUserLeaveRequests();
-            renderCalendar();
-            
-            // Clear form
-            document.getElementById('leave-request-form').reset();
-            
-            alert('Leave request submitted successfully!');
+            return colorMap[leaveType] || '#777777';
         }
 
-        // Render user's leave requests
-        function renderUserLeaveRequests() {
-            const tbody = document.getElementById('user-leave-requests');
+        // Employee Management Functions
+        function renderEmployeesTable() {
+            if (currentUser?.role !== 'Admin') return;
+            
+            const tbody = document.getElementById('employees-table').querySelector('tbody');
             tbody.innerHTML = '';
             
-            const userRequests = leaveRequests
-                .filter(req => req.userId === currentUser.id)
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
-            const pendingCount = userRequests.filter(req => req.status === 'pending').length;
-            const approvedCount = userRequests.filter(req => req.status === 'approved').length;
-            
-            document.getElementById('pending-count').textContent = pendingCount;
-            document.getElementById('approved-count').textContent = approvedCount;
-            
-            if (userRequests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No leave requests yet</td></tr>';
-                return;
-            }
-            
-            userRequests.forEach(request => {
-                const tr = document.createElement('tr');
+            employeesData.forEach(employee => {
+                const row = document.createElement('tr');
                 
-                const statusClass = {
-                    'pending': 'leave-status-pending',
-                    'approved': 'leave-status-approved',
-                    'rejected': 'leave-status-rejected'
-                }[request.status];
-                
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${getDisplayNameForLeaveType(request.type)}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${formatDate(request.startDate)} - ${formatDate(request.endDate)}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">${request.days}</td>
-                    <td class="px-6 py-4">${request.reason}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 rounded ${statusClass}">${request.status}</span>
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${employee.employeeId}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.department}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${employee.role}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button class="edit-employee-btn text-blue-600 hover:text-blue-900 mr-3" data-id="${employee.id}">Edit</button>
+                        <button class="delete-employee-btn text-red-600 hover:text-red-900" data-id="${employee.id}">Delete</button>
                     </td>
                 `;
                 
-                tbody.appendChild(tr);
-            });
-        }
-
-        // Render pending requests for admin
-        function renderPendingRequests() {
-            const tbody = document.getElementById('admin-pending-requests');
-            tbody.innerHTML = '';
-            
-            const pendingRequests = leaveRequests
-                .filter(req => req.status === 'pending')
-                .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            
-            if (pendingRequests.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No pending requests</td></tr>';
-                return;
-            }
-            
-            pendingRequests.forEach(request => {
-                const tr = document.createElement('tr');
-                
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">${request.userName}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${request.type}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${formatDate(request.startDate)} - ${formatDate(request.endDate)}
-                    </td>
-                    <td class="px-6 py-4">${request.reason}</td>
-                    <td class="px-6 py-4 whitespace-nowrap space-x-2">
-                        <button class="approve-btn px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200" data-id="${request.id}">Approve</button>
-                        <button class="reject-btn px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200" data-id="${request.id}">Reject</button>
-                    </td>
-                `;
-                
-                tbody.appendChild(tr);
+                tbody.appendChild(row);
             });
             
-            // Add event listeners to buttons
-            document.querySelectorAll('.approve-btn').forEach(btn => {
-                btn.addEventListener('click', () => handleRequestAction(btn.getAttribute('data-id'), 'approved'));
+            // Add event listeners to edit and delete buttons
+            document.querySelectorAll('.edit-employee-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const employeeId = btn.getAttribute('data-id');
+                    editEmployee(employeeId);
+                });
             });
             
-            document.querySelectorAll('.reject-btn').forEach(btn => {
-                btn.addEventListener('click', () => handleRequestAction(btn.getAttribute('data-id'), 'rejected'));
-            });
-        }
-
-        // Handle approve/reject actions
-        function handleRequestAction(requestId, action) {
-            const request = leaveRequests.find(req => req.id === requestId);
-            if (!request) return;
-            
-            request.status = action;
-            
-            // If approved, deduct from user's leave balance
-            if (action === 'approved') {
-                const user = users.find(u => u.id === request.userId);
-                if (user) {
-                    user.remainingLeave -= request.days;
-                    saveUsers();
-                }
-            }
-            
-            saveLeaveRequests();
-            renderPendingRequests();
-            
-            // Update the requester's view if they're currently viewing the page
-            if (currentUser.id === request.userId) {
-                renderUserLeaveRequests();
-            }
-            
-            // Update calendar
-            renderCalendar();
-        }
-
-        // Render employee list
-        function renderEmployeeList() {
-            // Add click handler for delete buttons
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-id');
-                    if(confirm('Are you sure you want to delete this employee?')) {
-                        deleteEmployee(userId);
-                    }
+            document.querySelectorAll('.delete-employee-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const employeeId = btn.getAttribute('data-id');
+                    deleteEmployee(employeeId);
                 });
             });
         }
 
-        function deleteEmployee(userId) {
-            // Remove employee from users array
-            users = users.filter(user => user.id !== userId);
-            saveUsers();
+        function openAddEmployeeModal() {
+            document.getElementById('modal-title').textContent = 'Add New Employee';
+            document.getElementById('employee-id').value = '';
+            document.getElementById('employee-form').reset();
+            document.getElementById('modal-password').required = true;
+            document.getElementById('employee-modal').classList.remove('hidden');
             
-            // Also remove any pending leave requests from this user
-            leaveRequests = leaveRequests.filter(req => req.userId !== userId || req.status !== 'pending');
-            saveLeaveRequests();
+            // Generate a new employee ID
+            const lastEmployee = [...employeesData].sort((a, b) => 
+                parseInt(b.employeeId.replace(/\D/g, '')) - parseInt(a.employeeId.replace(/\D/g, ''))
+            )[0];
             
-            // Re-render employee list
-            renderEmployeeList();
-            alert('Employee deleted successfully');
-        }
-            const tbody = document.getElementById('employee-list');
-            tbody.innerHTML = '';
-            
-            const filteredUsers = users.filter(user => user.role !== 'admin');
-            
-            if (filteredUsers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No employees yet</td></tr>';
-                return;
-            }
-            
-            filteredUsers.forEach(user => {
-                const tr = document.createElement('tr');
-                
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">${user.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${user.email}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${user.department}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${user.remainingLeave}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${currentUser.role === 'admin' ? 
-                          `<button class="delete-btn px-3 py-1 bg-gray-100 text-gray-800 rounded hover:bg-red-100 hover:text-red-800" 
-                            data-id="${user.id}">
-                            <i class="fas fa-trash-alt"></i>
-                          </button>` : 
-                          ''}
-                    </td>
-                `;
-                
-                tbody.appendChild(tr);
-            });
-        }
-
-        // Filter employees by search
-        function filterEmployees() {
-            const searchTerm = document.getElementById('employee-search').value.toLowerCase();
-            const rows = document.getElementById('employee-list').querySelectorAll('tr');
-            
-            rows.forEach(row => {
-                const name = row.cells[0].textContent.toLowerCase();
-                const email = row.cells[1].textContent.toLowerCase();
-                const shouldShow = name.includes(searchTerm) || email.includes(searchTerm);
-                row.style.display = shouldShow ? '' : 'none';
-            });
-        }
-
-        // Render calendar
-        function renderCalendar() {
-            const month = parseInt(document.getElementById('calendar-month').value);
-            const year = parseInt(document.getElementById('calendar-year').value);
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startingDay = firstDay.getDay();
-            
-            let calendarHTML = '';
-            let dayCount = 1;
-            
-            // Calendar header
-            let header = `
-                <thead>
-                    <tr>
-                        <th class="p-2">Sun</th>
-                        <th class="p-2">Mon</th>
-                        <th class="p-2">Tue</th>
-                        <th class="p-2">Wed</th>
-                        <th class="p-2">Thu</th>
-                        <th class="p-2">Fri</th>
-                        <th class="p-2">Sat</th>
-                    </tr>
-                </thead>
-                <tbody>
-            `;
-            
-            // Calendar body
-            for (let i = 0; i < 6; i++) { // 6 rows max
-                calendarHTML += '<tr>';
-                
-                for (let j = 0; j < 7; j++) { // 7 days/week
-                    if (i === 0 && j < startingDay) {
-                        calendarHTML += '<td class="p-2"></td>';
-                    } else if (dayCount > daysInMonth) {
-                        calendarHTML += '<td class="p-2"></td>';
-                    } else {
-                        const dateStr = `${year}-${month + 1}-${dayCount}`;
-                        const leaveOnThisDay = leaveRequests.filter(req => 
-                            isDateInRange(dateStr, req.startDate, req.endDate)
-                        );
-                        
-                        let dayContent = dayCount;
-                        let cellClass = '';
-                        let tooltip = '';
-                        
-                        if (leaveOnThisDay.length > 0) {
-                            cellClass = 'has-leave ';
-                            const userLeaves = leaveOnThisDay.filter(req => req.userId === currentUser.id);
-                            const otherLeaves = leaveOnThisDay.filter(req => req.userId !== currentUser.id);
-                            
-                            // User's own leaves show as blue
-                            if (userLeaves.length > 0) {
-                                cellClass += 'bg-blue-100 ';
-                            }
-                            
-                            // Others' leaves show by status
-                            otherLeaves.forEach(req => {
-                                const statusText = req.status === 'approved' ? 
-                                    `${req.userName} (${getDisplayNameForLeaveType(req.type)})` : 
-                                    `${req.userName}: ${req.status}`;
-                                tooltip += `${statusText}\n`;
-                                switch(req.status) {
-                                    case 'pending':
-                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-yellow-100 ';
-                                        break;
-                                    case 'approved':
-                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-green-100 ';
-                                        break;
-                                    case 'rejected':
-                                        if (!cellClass.includes('bg-blue-100')) cellClass += 'bg-red-100 ';
-                                        break;
-                                }
-                            });
-                            
-                            if (tooltip) {
-                                dayContent = `
-                                    <div class="relative has-leave">
-                                        ${dayCount}
-                                        <div class="tooltip absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-sm bg-black text-white rounded opacity-0 transition-opacity">
-                                            ${tooltip}
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        }
-                        
-                        calendarHTML += `<td class="${cellClass}calendar-day p-1 align-top" style="height: 80px;">
-                            <div class="text-right px-1">${dayContent}</div>
-                            ${leaveOnThisDay.some(req => req.status === 'approved') ? 
-                                `<div class="text-xs text-center mt-1 truncate">
-                                    ${leaveOnThisDay.filter(req => req.status === 'approved')
-                                        .map(req => req.userName)
-                                        .join(', ')}
-                                </div>` : ''}
-                        </td>`;
-                        
-                        dayCount++;
-                    }
-                }
-                
-                calendarHTML += '</tr>';
-                
-                if (dayCount > daysInMonth) break;
-            }
-            
-            document.getElementById('calendar-body').innerHTML = calendarHTML;
-            
-            // Show month/year
-            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            // document.getElementById('current-month').textContent = `${monthNames[month]} ${year}`;
-            document.getElementById('calendar-month').value = month;
-            document.getElementById('calendar-year').value = year;
-        }
-
-        // Handle add employee
-        function handleAddEmployee(e) {
-            e.preventDefault();
-            
-            const name = document.getElementById('new-emp-name').value;
-            const email = document.getElementById('new-emp-email').value;
-            const department = document.getElementById('new-emp-dept').value;
-            const leaveBalance = document.getElementById('new-emp-leave').value;
-            
-            if (!name || !email || !department || !leaveBalance) {
-                alert('Please fill all fields');
-                return;
-            }
-            
-            if (users.some(u => u.email === email)) {
-                alert('Email already exists');
-                return;
-            }
-            
-            const newUser = {
-                id: generateId(),
-                name,
-                email,
-                password: '123456', // Default password
-                role: 'employee',
-                department,
-                leaveBalance: parseInt(leaveBalance),
-                remainingLeave: parseInt(leaveBalance)
-            };
-            
-            users.push(newUser);
-            saveUsers();
-            
-            // Clear form
-            document.getElementById('add-employee-form').reset();
-            
-            // Update UI
-            renderEmployeeList();
-            
-            alert('Employee added successfully!');
-        }
-
-        // Save system settings
-        function saveSettings() {
-            const defaultLeaveDays = document.getElementById('default-leave-days').value;
-            settings.defaultLeaveDays = parseInt(defaultLeaveDays);
-            localStorage.setItem('leaveSystemSettings', JSON.stringify(settings));
-            alert('Settings saved!');
-        }
-
-        // Helper functions
-        function generateId() {
-            return Math.random().toString(36).substr(2, 9);
-        }
-        
-        function getDisplayNameForLeaveType(type) {
-            const types = {
-                'local-credits': 'Local Credits',
-                'vacation': 'Vacation Leave',
-                'mandatory': 'Mandatory/Forced Leave',
-                'sick': 'Sick Leave',
-                'maternity': 'Maternity Leave',
-                'paternity': 'Paternity Leave',
-                'special-privilege': 'Special Privilege Leave',
-                'solo-parent': 'Solo Parent Leave',
-                'study': 'Study Leave',
-                'vawc': '10-Day VAWC Leave',
-                'rehabilitation': 'Rehabilitation Privilege',
-                'special-women': 'Special Leave Benefits for Women',
-                'calamity': 'Special Emergency (Calamity Leave)',
-                'adoption': 'Adoption Leave'
-            };
-            return types[type] || type;
-        }
-
-        function formatDate(dateStr) {
-            const options = { year: 'numeric', month: 'short', day: 'numeric' };
-            return new Date(dateStr).toLocaleDateString(undefined, options);
-        }
-        
-        function isDateInRange(dateStr, startDateStr, endDateStr) {
-            const date = new Date(dateStr);
-            const startDate = new Date(startDateStr);
-            const endDate = new Date(endDateStr);
-            return date >= startDate && date <= endDate;
-        }
-        
-        function saveUsers() {
-            localStorage.setItem('leaveSystemUsers', JSON.stringify(users));
-        }
-        
-        function saveLeaveRequests() {
-            localStorage.setItem('leaveSystemRequests', JSON.stringify(leaveRequests));
-        }
-
-        // Load sample data if empty (for first-time users)
-        function loadSampleDataIfEmpty() {
-            if (users.length === 0 && leaveRequests.length === 0) {
-                // Sample admin
-                users.push({
-                    id: generateId(),
-                    name: 'Admin',
-                    email: 'admin@school.edu',
-                    password: 'admin123',
-                    role: 'admin',
-                    department: 'Administration',
-                    leaveBalance: 0,
-                    remainingLeave: 0
-                });
-                
-                // Sample employees
-                const departments = ['Teaching', 'Teaching', 'Teaching', 'Non-Teaching', 'Non-Teaching', 'Support'];
-                
-                for (let i = 1; i <= 6; i++) {
-                    users.push({
-                        id: generateId(),
-                        name: `Employee ${i}`,
-                        email: `employee${i}@school.edu`,
-                        password: '123456',
-                        role: 'employee',
-                        department: departments[i-1],
-                        leaveBalance: 15,
-                        remainingLeave: 15 - Math.floor(Math.random() * 5)
-                    });
-                }
-                
-                // Sample leave requests
-                const today = new Date();
-                for (let i = 1; i <= 8; i++) {
-                    const startDate = new Date();
-                    startDate.setDate(today.getDate() + i * 3);
-                    
-                    const endDate = new Date(startDate);
-                    endDate.setDate(startDate.getDate() + Math.floor(Math.random() * 3));
-                    
-                    leaveRequests.push({
-                        id: generateId(),
-                        userId: users[1 + Math.floor(Math.random() * 6)].id,
-                        userName: `Employee ${1 + Math.floor(Math.random() * 6)}`,
-                        type: ['local-credits', 'vacation', 'mandatory', 'sick', 'maternity', 
-                                      'paternity', 'special-privilege', 'solo-parent', 'study', 
-                                      'vawc', 'rehabilitation', 'special-women', 'calamity', 
-                                      'adoption'][Math.floor(Math.random() * 14)],
-                        duration: ['full', 'half-am', 'half-pm'][Math.floor(Math.random() * 3)],
-                        startDate: formatDateForInput(startDate),
-                        endDate: formatDateForInput(endDate),
-                        reason: ['Family event', 'Doctor appointment', 'Personal reasons', 'Vacation'][Math.floor(Math.random() * 4)],
-                        days: (endDate.getDate() - startDate.getDate() + 1) * (Math.random() > 0.5 ? 1 : 0.5),
-                        status: ['pending', 'approved', 'rejected'][Math.floor(i / 3)],
-                        createdAt: new Date().toISOString()
-                    });
-                }
-                
-                saveUsers();
-                saveLeaveRequests();
-            }
-        }
-        
-        function formatDateForInput(date) {
-            return date.toISOString().split('T')[0];
-        }
-    </script>
-</body>
-</html>
+          
